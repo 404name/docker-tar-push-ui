@@ -3,6 +3,37 @@
 <head>
   <link rel="stylesheet" href="./static/tailwind.min.css">
   <script src="./static/axios.min.js"></script>
+  <style>
+    body {
+        background-color: #1e1e1e; /* 深色背景 */
+        color: #ffffff; /* 白色文字 */
+        font-family: 'Courier New', Courier, monospace; /* 等宽字体 */
+    }
+    #output {
+        height: 600px; /* 输出区域高度 */
+        overflow-y: auto; /* 允许垂直滚动 */
+        padding: 10px; /* 内边距 */
+        border: 1px solid #444; /* 边框 */
+        background-color: #000; /* 输出区域背景色 */
+    }
+    #commandInput {
+        width: calc(100% - 50px); /* 输入框宽度 */
+        padding: 10px; /* 内边距 */
+        border: 1px solid #444; /* 边框 */
+        background-color: #333; /* 输入框背景色 */
+        color: #fff; /* 输入框文字颜色 */
+    }
+    #sendButton {
+        padding: 10px; /* 内边距 */
+        background-color: #007bff; /* 按钮背景色 */
+        color: white; /* 按钮文字颜色 */
+        border: none; /* 无边框 */
+        cursor: pointer; /* 鼠标指针 */
+    }
+    #sendButton:hover {
+        background-color: #0056b3; /* 悬停时的背景色 */
+    }
+</style>
 </head>
 <body>
     <section class="p-6 bg-gray-100 text-gray-800">
@@ -33,12 +64,12 @@
                             <input type="password" name="password" id="password" placeholder="密码" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
                         </div>
                     </fieldset>
-                    <fieldset class="w-full space-y-1 text-gray-800">
+                    <!-- <fieldset class="w-full space-y-1 text-gray-800">
                         <div class="flex">
                             <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">CA证书</span>
                             <input type="file" name="caFile" id="caFile" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
                         </div>
-                    </fieldset>
+                    </fieldset> -->
                     <fieldset class="w-full space-y-1 text-gray-800">
                         <div class="flex">
                             <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">离线镜像包</span>
@@ -54,6 +85,16 @@
             </div>
         </div>
     </section>
+    <body class="bg-gray-100">
+        <div class="container mx-auto">
+            <h1 class="text-2xl font-bold mb-4">Docker Tar Push Terminal</h1>
+            <div id="output" class="mb-4"></div>
+            <div class="flex">
+                <input type="text" id="commandInput" placeholder="Type your command..." />
+                <button id="sendButton">Send</button>
+            </div>
+        </div>
+    </body>
     <div class="container p-2 mx-auto sm:p-4 text-gray-800">
         <h2 class="mb-4 text-2xl font-semibold leading-tight">上传记录</h2>
         <div class="overflow-x-auto">
@@ -92,11 +133,49 @@
 
     <script>
         // 上传镜像包
+        const outputElement = document.getElementById("output");
+        const commandInput = document.getElementById("commandInput");
+        const sendButton = document.getElementById("sendButton");
+
+        const socket = new WebSocket("ws://localhost:8080/ws");
+
+        socket.onopen = function() {
+            console.log("WebSocket connection established.");
+            outputElement.innerHTML += "<span>> </span>"; // 初始化提示符
+        };
+
+        socket.onmessage = function(event) {
+            // 将接收到的消息中的换行符替换为 <br>
+            const formattedMessage = event.data.replace(/\n/g, "<br>");
+            outputElement.innerHTML += `<div>${formattedMessage}</div>`; // 显示输出
+            outputElement.innerHTML += "<span>> </span>"; // 添加提示符
+            outputElement.scrollTop = outputElement.scrollHeight; // 滚动到输出底部
+        };
+
+        sendButton.addEventListener("click", function() {
+            sendCommand();
+        });
+
+        // 允许按回车发送命令
+        commandInput.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                sendCommand();
+            }
+        });
+
+        function sendCommand() {
+            const command = commandInput.value.trim();
+            if (command) {
+                socket.send(command); // 发送命令
+                commandInput.value = ""; // 清空输入框
+            }
+        }
+
         function uploadImage() {
             const repo = document.getElementById('repo').value;
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
-            const caFile = document.getElementById('caFile').files[0];
+            // const caFile = document.getElementById('caFile').files[0];
             const imageFile = document.getElementById('imageFile').files[0];
             const url = '/upload';
 
@@ -104,7 +183,7 @@
             formData.append('repo', repo);
             formData.append('username', username);
             formData.append('password', password);
-            formData.append('caFile', caFile);
+            // formData.append('caFile', caFile);
             formData.append('imageFile', imageFile);
 
             const progressWrapper = document.getElementById('progressWrapper');

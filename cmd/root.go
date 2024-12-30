@@ -34,6 +34,7 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&staticDir, "static", "./public/dist", "静态文件夹路径")
 	RootCmd.AddCommand(VersionCmd)
 	RootCmd.AddCommand(ServerCmd)
+	RootCmd.AddCommand(DockerTarPushCmd)
 	// 在RootCmd Excute前，version这些都还只是初始值
 }
 
