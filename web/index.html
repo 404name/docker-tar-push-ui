@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="./static/tailwind.min.css">
+  <script src="./static/axios.min.js"></script>
+</head>
+<body>
+    <section class="p-6 bg-gray-100 text-gray-800">
+        <div class="container grid gap-6 mx-auto text-center">
+            <div class="w-full px-6 py-16 rounded-md sm:px-12 md:px-16 xl:col-span-2 bg-gray-50">
+                <h2 class="text-5xl font-extrabold text-gray-900">镜像上传工具</h2>
+                <div class="max-w overflow-hidden rounded-lg shadow-lg bg-gray-50 text-gray-800">
+                    <div class="flex items-end justify-end h-32 p-4 bg-gray-500 bg-center bg-cover" style="background-image: url(https://code.sundray.com.cn/12626/img/raw/master/2023/09/5_15_27_30_Snipaste_2023-07-25_12-29-58.png);">
+                        <p class="px-2 py-1 text-sm tracking-widest text-gray-100 uppercase bg-gray-800 bg-opacity-75 rounded shadow-lg">POWERD BY 12626</p>
+                    </div>
+                </div>
+                <form novalidate="" action="" class="self-stretch space-y-3 my-4" enctype="multipart/form-data">
+                    <fieldset class="w-full space-y-1 text-gray-800">
+                        <div class="flex">
+                            <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">镜像仓库地址</span>
+                            <input type="text" name="repo" id="repo" placeholder="仓库地址" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                        </div>
+                    </fieldset>
+                    <fieldset class="w-full space-y-1 text-gray-800">
+                        <div class="flex">
+                            <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">账号</span>
+                            <input type="text" name="username" id="username" placeholder="账号" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                        </div>
+                    </fieldset>
+                    <fieldset class="w-full space-y-1 text-gray-800">
+                        <div class="flex">
+                            <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">密码</span>
+                            <input type="password" name="password" id="password" placeholder="密码" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                        </div>
+                    </fieldset>
+                    <fieldset class="w-full space-y-1 text-gray-800">
+                        <div class="flex">
+                            <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">CA证书</span>
+                            <input type="file" name="caFile" id="caFile" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                        </div>
+                    </fieldset>
+                    <fieldset class="w-full space-y-1 text-gray-800">
+                        <div class="flex">
+                            <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">离线镜像包</span>
+                            <input type="file" name="imageFile" id="imageFile" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                        </div>
+                    </fieldset>
+                    <button type="button" onclick="uploadImage()" class="w-full py-2 font-semibold rounded text-gray-50 bg-indigo-600">上传镜像包</button>
+                </form>
+                <!-- Progress Bar -->
+                <div id="progressWrapper" class="w-full bg-gray-200 rounded-full h-4 mt-4 hidden">
+                    <div id="progressBar" class="bg-indigo-600 h-full rounded-full"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="container p-2 mx-auto sm:p-4 text-gray-800">
+        <h2 class="mb-4 text-2xl font-semibold leading-tight">上传记录</h2>
+        <div class="overflow-x-auto">
+            <table id="recordTable" class="min-w-full text-xs">
+                <colgroup>
+                    <col>
+                    <col>
+                </colgroup>
+                <thead class="bg-gray-300">
+                    <tr class="text-left">
+                        <th class="p-3">镜像名字</th>
+                        <th class="p-3">镜像地址</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <section class="bg-gray-100 text-gray-800">
+        <div class="container flex flex-col justify-center px-4 py-8 mx-auto md:p-8">
+            <h2 class="text-2xl font-semibold sm:text-4xl">常见问题</h2>
+            <p class="mt-4 mb-8 text-gray-600">常见的问题和解答。</p>
+            <div class="space-y-4">
+                <details class="w-full border rounded-lg">
+                    <summary class="px-4 py-6 focus:outline-none focus-visible:ring-indigo-600">如何使用该工具？</summary>
+                    <p class="px-4 py-6 pt-0 ml-4 -mt-4 text-gray-600">请按照页面上的指示填写镜像仓库地址、账号、密码，并上传CA证书和离线镜像包，然后点击“上传镜像包”按钮。</p>
+                </details>
+                <details class="w-full border rounded-lg">
+                    <summary class="px-4 py-6 focus:outline-none focus-visible:ring-indigo-600">上传后的镜像如何查看？</summary>
+                    <p class="px-4 py-6 pt-0 ml-4 -mt-4 text-gray-600">上传成功后，您可以在上传记录表格中查看镜像名字和镜像地址。</p>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // 上传镜像包
+        function uploadImage() {
+            const repo = document.getElementById('repo').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const caFile = document.getElementById('caFile').files[0];
+            const imageFile = document.getElementById('imageFile').files[0];
+            const url = '/upload';
+
+            const formData = new FormData();
+            formData.append('repo', repo);
+            formData.append('username', username);
+            formData.append('password', password);
+            formData.append('caFile', caFile);
+            formData.append('imageFile', imageFile);
+
+            const progressWrapper = document.getElementById('progressWrapper');
+            const progressBar = document.getElementById('progressBar');
+
+            progressWrapper.classList.remove('hidden');
+
+            axios.post(url, formData, {
+                onUploadProgress: function(progressEvent) {
+                    if (progressEvent.lengthComputable) {
+                        let percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        progressBar.style.width = percentCompleted + '%';
+                    }
+                }
+            })
+                .then(response => {
+                    alert('上传成功！');
+                    getData();
+                    progressWrapper.classList.add('hidden');
+                })
+                .catch(error => {
+                    alert('上传失败，请重试！');
+                    progressWrapper.classList.add('hidden');
+                });
+        }
+        function getData() {
+            const url = '/images';
+            const tableBody = document.querySelector('#recordTable tbody');
+            // 清空表格数据
+            tableBody.innerHTML = '';
+            axios.get(url)
+                .then(response => {
+                    const records = response.data;
+                    records.forEach(record => {
+                        const { name, address } = record;
+
+                        const row = document.createElement('tr');
+                        row.classList.add('border-b', 'border-opacity-20', 'border-gray-300', 'bg-gray-50');
+
+                        const nameCell = document.createElement('td');
+                        nameCell.classList.add('p-3');
+                        nameCell.textContent = name;
+                        row.appendChild(nameCell);
+
+                        const addressCell = document.createElement('td');
+                        addressCell.classList.add('p-3');
+                        addressCell.textContent = address;
+                        row.appendChild(addressCell);
+
+                        tableBody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    alert('获取数据失败，请重试！');
+                });
+        }
+
+        // 异步请求页面进入时的数据
+        window.addEventListener('DOMContentLoaded', () => {
+            getData()
+        });
+    </script>
+</body>
+</html>
