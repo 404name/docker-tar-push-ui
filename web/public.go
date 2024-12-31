@@ -22,7 +22,6 @@ var staticFiles embed.FS
 
 var (
     uploadDir = "./uploads" // 工作路径
-    mu        sync.Mutex    // 用于保护对 uploadDir 的并发访问
     commandSessions = make(map[*melody.Session]*Command) // 存储每个用户的命令状态
 )
 
@@ -159,9 +158,6 @@ func handleCommand(s *melody.Session, command string) error {
 		}
 		commandSessions[s] = cs
 	}
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-	
     // 按空格切割命令
     parts := strings.Fields(command) // 将命令按空格分割成多个部分
     if len(parts) == 0 {
@@ -176,6 +172,9 @@ func handleCommand(s *melody.Session, command string) error {
 		return s.Write([]byte(help())) // 发送帮助信息
     case "ls":
         return s.Write([]byte(listFiles(uploadDir))) // 发送文件列表
+	case "exit":
+		cs.stop = true
+		return nil
     default:
 		return executeDockerTarPush(s, parts) // 将参数传递给执行函数
     }
@@ -212,6 +211,8 @@ func listFiles(dir string) []byte {
 }
 
 func executeDockerTarPush(s *melody.Session, runArgs []string) error {
+	commandSessions[s].mu.Lock()
+	defer commandSessions[s].mu.Unlock()
 	//TODO 解决这里卡死的问题
     // 分割命令和参数
     // runArgs := []string{"C:\\Users\\User\\go\\src\\mq.code.sangfor.org\\12626\\image-upload-portal\\docker-tar-push.exe"} // 假设 docker-tar-push.exe 在当前目录下
@@ -250,6 +251,10 @@ func executeDockerTarPush(s *melody.Session, runArgs []string) error {
         defer stdout.Close()
         buf := make([]byte, 1024)
         for {
+			if cs := commandSessions[s]; cs != nil && cs.stop {
+				cs.stop = false
+				break
+			}
             n, err := stdout.Read(buf)
             if n > 0 {
                 // 将输出发送到 WebSocket
@@ -267,6 +272,10 @@ func executeDockerTarPush(s *melody.Session, runArgs []string) error {
         defer stderr.Close()
         buf := make([]byte, 1024)
         for {
+			if cs := commandSessions[s]; cs != nil && cs.stop {
+				cs.stop = false
+				break
+			}
             n, err := stderr.Read(buf)
             if n > 0 {
                 // 将错误输出发送到 WebSocket
