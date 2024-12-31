@@ -2,20 +2,10 @@
 <html>
 <head>
   <link rel="stylesheet" href="./static/tailwind.min.css">
+  <link rel="stylesheet" href="./static/xterm.css" />
+  <script src="./static/xterm.js"></script>
   <script src="./static/axios.min.js"></script>
   <style>
-    body {
-        background-color: #1e1e1e; /* 深色背景 */
-        color: #ffffff; /* 白色文字 */
-        font-family: 'Courier New', Courier, monospace; /* 等宽字体 */
-    }
-    #output {
-        height: 600px; /* 输出区域高度 */
-        overflow-y: auto; /* 允许垂直滚动 */
-        padding: 10px; /* 内边距 */
-        border: 1px solid #444; /* 边框 */
-        background-color: #000; /* 输出区域背景色 */
-    }
     #commandInput {
         width: calc(100% - 50px); /* 输入框宽度 */
         padding: 10px; /* 内边距 */
@@ -33,7 +23,7 @@
     #sendButton:hover {
         background-color: #0056b3; /* 悬停时的背景色 */
     }
-</style>
+  </style>
 </head>
 <body>
     <section class="p-6 bg-gray-100 text-gray-800">
@@ -85,16 +75,16 @@
             </div>
         </div>
     </section>
-    <body class="bg-gray-100">
-        <div class="container mx-auto">
-            <h1 class="text-2xl font-bold mb-4">Docker Tar Push Terminal</h1>
-            <div id="output" class="mb-4"></div>
-            <div class="flex">
-                <input type="text" id="commandInput" placeholder="Type your command..." />
-                <button id="sendButton">Send</button>
-            </div>
+    <div class="container p-2 mx-auto sm:p-4 text-gray-800">
+        <h1 class="text-2xl font-bold mb-4">Docker Tar Push Terminal</h1>
+        <div class="w-full h-408px">
+            <div id="terminal" class="w-full h-full"></div>
         </div>
-    </body>
+        <div class="flex">
+            <input type="text" id="commandInput" placeholder="Type your command..." />
+            <button id="sendButton">Send</button>
+        </div>
+    </div>
     <div class="container p-2 mx-auto sm:p-4 text-gray-800">
         <h2 class="mb-4 text-2xl font-semibold leading-tight">上传记录</h2>
         <div class="overflow-x-auto">
@@ -132,24 +122,36 @@
     </section>
 
     <script>
-        // 上传镜像包
-        const outputElement = document.getElementById("output");
+        const term = new Terminal();
+
+        term.open(document.querySelector('#terminal')); // 挂载
+        // 确保终端的大小为100%
+        
+        // 动态计算列数
+        function resizeTerminal() {
+            const terminalElement = document.getElementById('terminal');
+            const width = terminalElement.getBoundingClientRect().width; // 获取容器宽度
+            const charWidth = 9; // 每个字符的宽度（像素）
+            const cols = Math.floor(width / charWidth) - 5; // 计算列数
+            const rows = 24; // 设置行数
+            term.resize(cols, rows); // 设置终端大小
+        }
+        //term.resize(80, 24); // 这里的 80 和 24 是默认的列数和行数
+        window.addEventListener('resize', resizeTerminal);
+        resizeTerminal(); // 初始化时调整终端大小
+        const socket = new WebSocket(`ws://${window.location.host}/webterminal`); // 创建WebSocket连接
         const commandInput = document.getElementById("commandInput");
         const sendButton = document.getElementById("sendButton");
 
-        const socket = new WebSocket("ws://localhost:8080/ws");
+        // term.onData((data) => { // 网页xterm窗口中有输入的数据
+        //     // console.log('term.onData:', data);
+        //     socket.send(data); // 通过WebSocket发送给服务器
+        // });
 
-        socket.onopen = function() {
-            console.log("WebSocket connection established.");
-            outputElement.innerHTML += "<span>> </span>"; // 初始化提示符
-        };
-
-        socket.onmessage = function(event) {
-            // 将接收到的消息中的换行符替换为 <br>
-            const formattedMessage = event.data.replace(/\n/g, "<br>");
-            outputElement.innerHTML += `<div>${formattedMessage}</div>`; // 显示输出
-            outputElement.innerHTML += "<span>> </span>"; // 添加提示符
-            outputElement.scrollTop = outputElement.scrollHeight; // 滚动到输出底部
+        socket.onmessage = (event) => { // 收到来自服务器的WebSocket消息  
+            const data = event.data.replace(/\r?\n/g, '\r\n'); // 预处理换行符
+            console.log('socket.onmessage:', event.data);
+            term.write(data); // 向xterm对象写入数据
         };
 
         sendButton.addEventListener("click", function() {
@@ -167,9 +169,55 @@
             const command = commandInput.value.trim();
             if (command) {
                 socket.send(command); // 发送命令
+
+                // ANSI 转义序列设置颜色
+                const colorCode = "32"; // 绿色
+                const resetCode = "0"; // 重置颜色
+
+                // 使用 ANSI 转义序列写入命令
+                term.write(`\x1b[${colorCode}m> ${command}\x1b[${resetCode}m\r\n`); // 向 xterm 对象写入数据
                 commandInput.value = ""; // 清空输入框
             }
         }
+
+        // // 上传镜像包
+        // const outputElement = document.getElementById("output");
+        // const commandInput = document.getElementById("commandInput");
+        // const sendButton = document.getElementById("sendButton");
+
+        // const socket = new WebSocket("ws://localhost:8080/ws");
+
+        // socket.onopen = function() {
+        //     console.log("WebSocket connection established.");
+        //     outputElement.innerHTML += "<span>> </span>"; // 初始化提示符
+        // };
+
+        // socket.onmessage = function(event) {
+        //     // 将接收到的消息中的换行符替换为 <br>
+        //     const formattedMessage = event.data.replace(/\n/g, "<br>");
+        //     outputElement.innerHTML += `<div>${formattedMessage}</div>`; // 显示输出
+        //     outputElement.innerHTML += "<span>> </span>"; // 添加提示符
+        //     outputElement.scrollTop = outputElement.scrollHeight; // 滚动到输出底部
+        // };
+
+        // sendButton.addEventListener("click", function() {
+        //     sendCommand();
+        // });
+
+        // // 允许按回车发送命令
+        // commandInput.addEventListener("keypress", function(event) {
+        //     if (event.key === "Enter") {
+        //         sendCommand();
+        //     }
+        // });
+
+        // function sendCommand() {
+        //     const command = commandInput.value.trim();
+        //     if (command) {
+        //         socket.send(command); // 发送命令
+        //         commandInput.value = ""; // 清空输入框
+        //     }
+        // }
 
         function uploadImage() {
             const repo = document.getElementById('repo').value;

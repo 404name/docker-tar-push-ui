@@ -1,12 +1,13 @@
 module image-upload-portal
 
-go 1.22.0
+go 1.19
 
 require (
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/gin-gonic/gin v1.9.1
 	github.com/gorilla/websocket v1.5.1
 	github.com/mholt/archiver/v3 v3.5.1
+	github.com/olahol/melody v1.2.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/silenceper/log v0.0.0-20171204144354-e5ac7fa8a76a
 	github.com/spf13/cobra v1.8.0
