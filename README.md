@@ -52,7 +52,7 @@ docker-tar-push alpine:latest --registry=http://localhost:5000
 docker-tar-push /镜像目录路径 --registry=http://harbor.harbor.svc --username=admin --password=Harbor12345 --image-prefix=library/
 go run ./ docker-tar-push ./uploads/whoami.tar.gz --registry=https://10.113.66.245 --username=admin --password=Harbor-12345 --skip-ssl-verify=true --image-prefix=library/
 
-docker-tar-push C:\Users\User\go\src\mq.code.sangfor.org\12626\image-upload-portal\uploads\image-upload-portal.rar https://10.113.66.245 admin Harbor-12345 library/
+docker-tar-push \uploads\image-upload-portal.rar https://10.113.66.245 admin Harbor-12345 library/
 ```
 当我们从仓库下载镜像时，它的完整名称为: `docker pull harbor.harbor.svc/library/python:3.0`  
 
