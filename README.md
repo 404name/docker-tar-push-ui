@@ -1,8 +1,8 @@
-# TODO
-前端支持渲染颜色
-[INFO] ==> 绿色
-[DEBUG] ==> 蓝色
-[ERROR] ==> 红色
+# 镜像UI上传工具 
+
+image-upload-portal 解决部分场景无法使用命令行上传镜像的问题
+
+![](./docs/image-upload-portal.jpg)
 
 # install
 
@@ -22,25 +22,7 @@ push your docker tar archive image without docker
 - 支持对image增加前缀repo
 - 支持上传harbor
 
-## 使用
 
-```shell
-push your docker tar archive image without docker.
-
-Usage:
-  docker-tar-push [flags]
-
-Flags:
-  -h, --help                  help for docker-tar-push
-      --image-prefix string   add image repo prefix
-      --log-level int         log-level, 0:Fatal,1:Error,2:Warn,3:Info,4:Debug (default 3)
-      --password string       registry auth password
-      --registry string       registry url
-      --skip-ssl-verify       skip ssl verify
-      --username string       registry auth username
-```
-
-示例:  
 **用法一**  
 ```shell
 docker-tar-push alpine:latest --registry=http://localhost:5000
@@ -61,3 +43,10 @@ docker-tar-push \uploads\image-upload-portal.rar https://10.113.66.245 admin Har
 ```sh
 go build -o bin/docker-tar-push cmd/docker-tar-push/main.go
 ```
+
+
+# TODO
+
+- [ ] dockerfile打包
+- [ ] YAML适配
+- [ ] 支持阿里云推送
