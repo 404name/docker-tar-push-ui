@@ -180,17 +180,28 @@ func handleCommand(s *melody.Session, command string) error {
 		}()
 		return s.Write([]byte("推送中\n")) // 发送帮助信息
     case "ls":
-        return s.Write([]byte(listFiles(uploadDir))) // 发送文件列表
+        return s.Write([]byte(listFiles(uploadDir)))
 	case "exit":
 		cs.stop = true
 		return nil
+	case "help":
+		return s.Write([]byte(help()))
     default:
-		return executeDockerTarPush(s, parts) // 将参数传递给执行函数
+		return s.Write([]byte("暂不支持的指令：" + help()))
+		// TODO后续支持自定义的代码执行
+		// return executeDockerTarPush(s, parts) // 将参数传递给执行函数
     }
 }
 
 func help() string {
-	return `Available commands:
+	return `WELCOME 欢迎使用 镜像UI上传工具
+_____ __  __          _____ ______      _    _ _____  _      ____          _____  
+|_   _|  \/  |   /\   / ____|  ____|    | |  | |  __ \| |    / __ \   /\   |  __ \ 
+  | | | \  / |  /  \ | |  __| |__ ______| |  | | |__) | |   | |  | | /  \  | |  | |
+  | | | |\/| | / /\ \| | |_ |  __|______| |  | |  ___/| |   | |  | |/ /\ \ | |  | |
+ _| |_| |  | |/ ____ \ |__| | |____     | |__| | |    | |___| |__| / ____ \| |__| |
+|_____|_|  |_/_/    \_\_____|______|     \____/|_|    |______\____/_/    \_\_____/ 
+Available commands:
 - help: Show this help message
 - ls: List files in the upload directory
 - docker-tar-push <args>: Execute docker-tar-push with the provided arguments
