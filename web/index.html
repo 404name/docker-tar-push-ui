@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>镜像UI上传工具</title>
+  <link rel="icon" href="./static/harbor.svg" type="image/x-icon">
   <link rel="stylesheet" href="./static/tailwind.min.css">
   <link rel="stylesheet" href="./static/xterm.css" />
   <script src="./static/xterm.js"></script>
@@ -23,70 +27,121 @@
     #sendButton:hover {
         background-color: #0056b3; /* 悬停时的背景色 */
     }
+    #dropZone.dragover {
+    border-color: #4f46e5; /* Indigo color */
+    background-color: #e0e7ff; /* Light indigo background */
+    }
+
+    #dropZone.dragover p {
+        color: #4f46e5; /* Indigo color */
+    }
   </style>
 </head>
 <body>
-    <section class="p-6 bg-gray-100 text-gray-800">
-        <div class="container grid gap-6 mx-auto text-center">
-            <div class="w-full px-6 py-16 rounded-md sm:px-12 md:px-16 xl:col-span-2 bg-gray-50">
-                <h2 class="text-5xl font-extrabold text-gray-900">镜像上传工具</h2>
-                <div class="max-w overflow-hidden rounded-lg shadow-lg bg-gray-50 text-gray-800">
-                    <div class="flex items-end justify-end h-32 p-4 bg-gray-500 bg-center bg-cover" style="background-image: url(https://code.sundray.com.cn/12626/img/raw/master/2023/09/5_15_27_30_Snipaste_2023-07-25_12-29-58.png);">
-                        <p class="px-2 py-1 text-sm tracking-widest text-gray-100 uppercase bg-gray-800 bg-opacity-75 rounded shadow-lg">POWERD BY 12626</p>
+    <section class="p-2  bg-gray-100 text-gray-800">
+        <div class="container grid gap-6 mx-auto">
+            <div class="w-full px-2 py-2 rounded-md sm:px-2 md:px-2 xl:col-span-2 bg-gray-50">
+                <div class="max-w-full overflow-hidden rounded-lg shadow-lg bg-gray-50 text-gray-800">
+                    <div class="flex items-end h-16 p-4 gap-3 bg-gradient-to-r from-blue-500 to-purple-500">
+                        <!-- 左侧两个元素，靠左，挨着 -->
+                        <div class="flex items-center gap-3">
+                            <p class="px-2 py-1 text-sm tracking-widest text-gray-100 uppercase bg-gray-800 bg-opacity-75 rounded shadow-lg">镜像上传工具</p>
+                            <p class="px-2 py-1 text-sm tracking-widest text-gray-100 uppercase bg-gray-800 bg-opacity-75 rounded shadow-lg">POWERED BY 404name</p>
+                        </div>
+                    
+                        <!-- 右侧三个元素，靠右，隔开 -->
+                        <div class="flex-1 flex justify-end gap-3">
+                            <p class="px-2 py-1 text-sm tracking-widest text-gray-100 uppercase bg-gray-800 bg-opacity-75 rounded shadow-lg">[❔使用指南]</p>
+                            <p class="px-2 py-1 text-sm tracking-widest text-gray-100 uppercase bg-gray-800 bg-opacity-75 rounded shadow-lg">⓵ 上传离线镜像文件</p>
+                            <p class="px-2 py-1 text-sm tracking-widest text-gray-100 uppercase bg-gray-800 bg-opacity-75 rounded shadow-lg">⓶ 填写仓库配置上传镜像</p>
+                            <p class="px-2 py-1 text-sm tracking-widest text-gray-100 uppercase bg-gray-800 bg-opacity-75 rounded shadow-lg">⓷ 查看上传结果</p>
+                        </div>
                     </div>
+                    
+                    <div class="flex space-x-4 h-36">
+                        <!-- 使用指南 -->
+                        
+                    
+                        <!-- 上传文件 -->
+                        <div class="flex-1 p-4  h-36 relative">
+                            <fieldset class="w-full h-full space-y-1 text-gray-800 p-1" id="uploadField">
+                                <div id="dropZone" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-md p-6 bg-gray-100 hover:bg-gray-200 transition-colors duration-200 ease-in-out" style="width: 100%; height: 100%; ">
+                                    <input type="file" name="uploadFile" id="uploadFile" class="hidden" onchange="handleFileSelect(event)">
+                                    <p id="dropZoneText" class="text-xl text-gray-600">拖拽文件到这里或点击选择文件</p>
+                                    <button type="button" id="uploadButton" onclick="uploadFile()" class="m-2 py-2 px-4 font-semibold rounded text-gray-50 bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200 ease-in-out">选择文件</button>
+                                </div>
+                            </fieldset>
+                        </div>
+                    
+                        <!-- 上传镜像包 -->
+                        <div class="flex-1 p-4">
+                            <fieldset class="w-full space-y-1 text-gray-800  mb-1">
+                                <div class="flex">
+                                    <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">镜像仓库地址</span>
+                                    <input type="text" name="repo" id="repo" placeholder="仓库地址" value="https://10.113.66.245" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                                </div>
+                            </fieldset>
+                            <fieldset class="w-full space-y-1 text-gray-800  mb-1">
+                                <div class="flex">
+                                    <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">镜像前缀</span>
+                                    <input type="text" name="prefix" id="prefix" placeholder="这个前缀的项目组一定要存在" value="library" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                                </div>
+                            </fieldset>
+                            <fieldset class="w-full space-y-1 text-gray-800 mb-1">
+                                <div class="flex">
+                                    <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">账号</span>
+                                    <input type="text" value="admin" name="username" id="username" placeholder="账号" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                                </div>
+                            </fieldset>
+                            <fieldset class="w-full space-y-1 text-gray-800 mb-1">
+                                <div class="flex">
+                                    <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">密码</span>
+                                    <input type="password" value="Harbor12345" name="password" id="password" placeholder="密码" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                                </div>
+                            </fieldset>
+                            <fieldset class="w-full space-y-1 text-gray-800 mb-1">
+                                <div class="flex">
+                                    <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">离线镜像包</span>
+                                    <select id="imageFile" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                                        <option value="">选择镜像包</option>
+                                        <!-- 这里将通过 JavaScript 动态填充选项 -->
+                                    </select>
+                                </div>
+                            </fieldset>
+                            <fieldset class="w-full space-y-1 text-gray-800 mb-1">
+                                <div class="flex">
+                                    <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">跳过 SSL 验证</span>
+                                    <select id="skipSSLVerify" class="flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                                        <option value="true">是</option>
+                                        <option value="false">否</option>
+                                    </select>
+                                </div>
+                            </fieldset>
+                            <div class="flex space-x-2 gap-1">
+                                <button type="button" onclick="uploadImage()" class="w-full py-2 font-semibold rounded text-gray-50 bg-indigo-600">上传镜像包</button>
+                                <button type="button" onclick="saveSettings()" class="w-32 py-2 font-semibold rounded text-gray-50 bg-green-600">保存配置</button>
+                            </div>
+                        </div>
+                    </div>                    
                 </div>
-                <form novalidate="" action="" class="self-stretch space-y-3 my-4" enctype="multipart/form-data">
-                    <fieldset class="w-full space-y-1 text-gray-800">
-                        <div class="flex">
-                            <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">镜像仓库地址</span>
-                            <input type="text" name="repo" id="repo" placeholder="仓库地址" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                
+                <div class="flex space-x-2 my-4 gap-6">
+                    <div class="w-full">
+                        <div id="terminal" class="w-full p-2 bg-black"></div>
+                        <div class="flex h-12">
+                            <input type="text" id="commandInput" placeholder="Type your command..." />
+                            <button id="sendButton" class="w-48 h-12">发送</button>
                         </div>
-                    </fieldset>
-                    <fieldset class="w-full space-y-1 text-gray-800">
-                        <div class="flex">
-                            <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">账号</span>
-                            <input type="text" name="username" id="username" placeholder="账号" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
-                        </div>
-                    </fieldset>
-                    <fieldset class="w-full space-y-1 text-gray-800">
-                        <div class="flex">
-                            <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">密码</span>
-                            <input type="password" name="password" id="password" placeholder="密码" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
-                        </div>
-                    </fieldset>
-                    <!-- <fieldset class="w-full space-y-1 text-gray-800">
-                        <div class="flex">
-                            <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">CA证书</span>
-                            <input type="file" name="caFile" id="caFile" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
-                        </div>
-                    </fieldset> -->
-                    <fieldset class="w-full space-y-1 text-gray-800">
-                        <div class="flex">
-                            <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">离线镜像包</span>
-                            <input type="file" name="imageFile" id="imageFile" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
-                        </div>
-                    </fieldset>
-                    <button type="button" onclick="uploadImage()" class="w-full py-2 font-semibold rounded text-gray-50 bg-indigo-600">上传镜像包</button>
-                </form>
-                <!-- Progress Bar -->
-                <div id="progressWrapper" class="w-full bg-gray-200 rounded-full h-4 mt-4 hidden">
-                    <div id="progressBar" class="bg-indigo-600 h-full rounded-full"></div>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
     <div class="container p-2 mx-auto sm:p-4 text-gray-800">
-        <h1 class="text-2xl font-bold mb-4">Docker Tar Push Terminal</h1>
-        <div class="w-full h-408px">
-            <div id="terminal" class="w-full h-full"></div>
+        <div class="flex items-center justify-between">
+            <h2 class="text-2xl font-semibold sm:text-4xl">上传记录</h2>
+            <button type="button" onclick="deleteFile()" class="py-2 px-4 font-semibold rounded text-gray-50 bg-indigo-600">清空文件</button>
         </div>
-        <div class="flex">
-            <input type="text" id="commandInput" placeholder="Type your command..." />
-            <button id="sendButton">Send</button>
-        </div>
-    </div>
-    <div class="container p-2 mx-auto sm:p-4 text-gray-800">
-        <h2 class="mb-4 text-2xl font-semibold leading-tight">上传记录</h2>
         <div class="overflow-x-auto">
             <table id="recordTable" class="min-w-full text-xs">
                 <colgroup>
@@ -108,22 +163,99 @@
         <div class="container flex flex-col justify-center px-4 py-8 mx-auto md:p-8">
             <h2 class="text-2xl font-semibold sm:text-4xl">常见问题</h2>
             <p class="mt-4 mb-8 text-gray-600">常见的问题和解答。</p>
-            <div class="space-y-4">
-                <details class="w-full border rounded-lg">
-                    <summary class="px-4 py-6 focus:outline-none focus-visible:ring-indigo-600">如何使用该工具？</summary>
-                    <p class="px-4 py-6 pt-0 ml-4 -mt-4 text-gray-600">请按照页面上的指示填写镜像仓库地址、账号、密码，并上传CA证书和离线镜像包，然后点击“上传镜像包”按钮。</p>
-                </details>
-                <details class="w-full border rounded-lg">
-                    <summary class="px-4 py-6 focus:outline-none focus-visible:ring-indigo-600">上传后的镜像如何查看？</summary>
-                    <p class="px-4 py-6 pt-0 ml-4 -mt-4 text-gray-600">上传成功后，您可以在上传记录表格中查看镜像名字和镜像地址。</p>
-                </details>
+            <div id="faq-list" class="space-y-4">
+                <!-- 问答列表将通过 JavaScript 动态生成 -->
             </div>
         </div>
     </section>
-
+    
     <script>
-        const term = new Terminal();
+        // TODO 重构这边的代码，搞得结构更清晰
+        // 页面加载时自动填充表单
+        window.onload = function() {
+            const repo = localStorage.getItem('repo');
+            const prefix = localStorage.getItem('prefix');
+            const username = localStorage.getItem('username');
+            const password = localStorage.getItem('password');
+            const imageFile = localStorage.getItem('imageFile');
+            const skipSSLVerify = localStorage.getItem('skipSSLVerify');
 
+            if (repo) document.getElementById('repo').value = repo;
+            if (prefix) document.getElementById('prefix').value = prefix;
+            if (username) document.getElementById('username').value = username;
+            if (password) document.getElementById('password').value = password;
+            if (imageFile) document.getElementById('imageFile').value = imageFile;
+            if (skipSSLVerify) document.getElementById('skipSSLVerify').value = skipSSLVerify;
+        };
+
+        // 保存设置到 localStorage
+        function saveSettings() {
+            localStorage.setItem('repo', document.getElementById('repo').value);
+            localStorage.setItem('prefix', document.getElementById('prefix').value);
+            localStorage.setItem('username', document.getElementById('username').value);
+            localStorage.setItem('password', document.getElementById('password').value);
+            localStorage.setItem('imageFile', document.getElementById('imageFile').value);
+            localStorage.setItem('skipSSLVerify', document.getElementById('skipSSLVerify').value);
+            alert('设置已保存！');
+        }
+        const term = new Terminal();
+        const faqs = [
+            {
+                question: "401 UNAUTHORIZED 如何解决",
+                answer: "传入正确的账号密码即可 或者确保 镜像前缀对应的镜像仓库项目存在"
+            },
+            {
+                question: "什么是镜像前缀？镜像仓库的项目是什么概念?",
+                answer: "- 说简单点类比OSS存储，一般也需要提前创建一个bucket然后指定这个才能上传文件\n - 镜像仓库也类似，需要指定一个提前创建好的项目名，才能往里面推送镜像，否则会找不到项目报错401\n- 一个镜像假设是10.113.66.245/library/traefik/whoami:v1.10\n - 实际是3部分构成，上传镜像需要指定具体的项目/镜像前缀，例如这里就是library，一般需要自行去镜像仓库提前创建，否则会报错找不到项目\n - 【镜像仓库地址】10.113.66.245 \n -【项目/镜像前缀】library \n - 【镜像名称版本】traefik/whoami:v1.10"
+            },
+            {
+                question: "x509 certificate signed by unknown authority 如何解决",
+                answer: "选择跳过SSL验证即可"
+            },
+            {
+                question: "如何使用该工具？",
+                answer: "1. 先上传镜像包\n2. 请按照页面上的指示填写镜像仓库地址、账号、密码等配置（也可以保存，方便下次使用）\n 3. 然后点击“上传镜像包”按钮，等待上传成功，上传结果可以通过终端查看"
+            },
+            {
+                question: "上传后的镜像如何查看？",
+                answer: "上传成功后，您可以在上传记录表格中查看镜像名字和镜像地址。"
+            },
+            {
+                question: "终端目前能提供什么功能",
+                answer: "当前版本暂时只作为查看日志使用，也可以手动敲命令上传镜像，更多功能后续开放"
+            },
+            {
+                question: "文件里面带有空格或者特殊字符解析失败怎么办",
+                answer: "重命名，去除空格和特殊字符"
+            },
+            // 可以继续添加更多问题和答案
+        ];
+
+        // 渲染问答列表
+        function renderFAQs() {
+            const faqList = document.getElementById('faq-list');
+            faqs.forEach(faq => {
+                const details = document.createElement('details');
+                details.className = "w-full border rounded-lg";
+
+                const summary = document.createElement('summary');
+                summary.className = "px-4 py-6 focus:outline-none focus-visible:ring-indigo-600";
+                summary.textContent = faq.question;
+
+                const answer = document.createElement('p');
+                answer.className = "px-4 py-6 pt-0 ml-4 -mt-4 text-gray-600";
+                // 将换行符替换为 <br> 标签
+                answer.innerHTML = faq.answer.replace(/\n/g, '<br>');
+
+                details.appendChild(summary);
+                details.appendChild(answer);
+                faqList.appendChild(details);
+            });
+        }
+
+
+        // 调用渲染函数
+        renderFAQs();
         term.open(document.querySelector('#terminal')); // 挂载
         // 确保终端的大小为100%
         
@@ -133,25 +265,42 @@
             const width = terminalElement.getBoundingClientRect().width; // 获取容器宽度
             const charWidth = 9; // 每个字符的宽度（像素）
             const cols = Math.floor(width / charWidth) - 5; // 计算列数
-            const rows = 24; // 设置行数
+            const rows = 30; // 设置行数
             term.resize(cols, rows); // 设置终端大小
         }
-        //term.resize(80, 24); // 这里的 80 和 24 是默认的列数和行数
         window.addEventListener('resize', resizeTerminal);
         resizeTerminal(); // 初始化时调整终端大小
         const socket = new WebSocket(`ws://${window.location.host}/webterminal`); // 创建WebSocket连接
         const commandInput = document.getElementById("commandInput");
+        const imageFileSelect = document.getElementById('imageFile');
         const sendButton = document.getElementById("sendButton");
-
-        // term.onData((data) => { // 网页xterm窗口中有输入的数据
-        //     // console.log('term.onData:', data);
-        //     socket.send(data); // 通过WebSocket发送给服务器
-        // });
 
         socket.onmessage = (event) => { // 收到来自服务器的WebSocket消息  
             const data = event.data.replace(/\r?\n/g, '\r\n'); // 预处理换行符
             console.log('socket.onmessage:', event.data);
-            term.write(data); // 向xterm对象写入数据
+            
+            // 使用正则表达式替换方括号内容的颜色
+            const coloredData = data.replace(/\[(INFO|DEBUG|ERROR)\]/g, (match) => {
+                let colorCode;
+                switch (match) {
+                    case '[INFO]':
+                        colorCode = '32'; // 绿色
+                        break;
+                    case '[DEBUG]':
+                        colorCode = '34'; // 蓝色
+                        break;
+                    case '[ERROR]':
+                        alert("上传镜像包失败" + data)
+                        colorCode = '31'; // 红色
+                        break;
+                    default:
+                        colorCode = '0'; // 默认颜色
+                }
+                return `\x1b[${colorCode}m${match}\x1b[0m`; // 返回带颜色的方括号内容
+            });
+
+            // 向 xterm 对象写入数据
+            term.write(`${coloredData}`);
         };
 
         sendButton.addEventListener("click", function() {
@@ -180,116 +329,181 @@
             }
         }
 
-        // // 上传镜像包
-        // const outputElement = document.getElementById("output");
-        // const commandInput = document.getElementById("commandInput");
-        // const sendButton = document.getElementById("sendButton");
+        function uploadFile() {
+            const fileInput = document.getElementById('uploadFile');
+            const file = fileInput.files[0];
+            if (!file) {
+                document.getElementById('uploadFile').click()
+            }
+            uploadSelectedFile()
+        }
 
-        // const socket = new WebSocket("ws://localhost:8080/ws");
+        function uploadSelectedFile() {
+            const fileInput = document.getElementById('uploadFile');
+            const imageFile = localStorage.getItem('imageFile');
+            const file = fileInput.files[0];
+            const url = '/upload';
+            const uploadButton = document.getElementById('uploadButton');
+            const uploadField = document.getElementById('dropZone');
+            const dropZoneText = document.getElementById('dropZoneText');
+            if (!file) {
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', file);
+            uploadButton.style.display = 'none';
+            axios.post(url, formData, {
+                onUploadProgress: function(progressEvent) {
+                    const total = progressEvent.total;
+                    const current = progressEvent.loaded;
+                    const percentage = Math.round((current / total) * 100);
 
-        // socket.onopen = function() {
-        //     console.log("WebSocket connection established.");
-        //     outputElement.innerHTML += "<span>> </span>"; // 初始化提示符
-        // };
-
-        // socket.onmessage = function(event) {
-        //     // 将接收到的消息中的换行符替换为 <br>
-        //     const formattedMessage = event.data.replace(/\n/g, "<br>");
-        //     outputElement.innerHTML += `<div>${formattedMessage}</div>`; // 显示输出
-        //     outputElement.innerHTML += "<span>> </span>"; // 添加提示符
-        //     outputElement.scrollTop = outputElement.scrollHeight; // 滚动到输出底部
-        // };
-
-        // sendButton.addEventListener("click", function() {
-        //     sendCommand();
-        // });
-
-        // // 允许按回车发送命令
-        // commandInput.addEventListener("keypress", function(event) {
-        //     if (event.key === "Enter") {
-        //         sendCommand();
-        //     }
-        // });
-
-        // function sendCommand() {
-        //     const command = commandInput.value.trim();
-        //     if (command) {
-        //         socket.send(command); // 发送命令
-        //         commandInput.value = ""; // 清空输入框
-        //     }
-        // }
+                    // 更新按钮文本为上传进度
+                    dropZoneText.textContent = `上传中... ${percentage}%`;
+                    uploadField.style.background = `linear-gradient(to right, #e0e7ff ${percentage}%, #ffffff ${percentage}%)`;
+                }
+            }).then(response => {
+                alert('上传成功！');
+                getData();
+                uploadButton.style.display = 'block';
+                uploadField.style.background = ''; // 恢复为默认背景
+                uploadButton.textContent = '选择文件'; // 恢复按钮文本
+                dropZoneText.textContent = `拖拽文件到这里或点击选择文件`
+                fileInput.value = ''; // 清空文件输入框
+            }).catch(error => {
+                alert('上传失败，请重试！');
+                uploadButton.style.display = 'block';
+                uploadField.style.background = '#f44336'; // 设置为红色
+                uploadButton.textContent = '上传失败[重新上传]'; // 更新按钮文本
+                dropZoneText.textContent = `拖拽文件到这里或点击选择文件`
+            });
+        }
 
         function uploadImage() {
             const repo = document.getElementById('repo').value;
+            const prefix = document.getElementById('prefix').value;
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
-            // const caFile = document.getElementById('caFile').files[0];
-            const imageFile = document.getElementById('imageFile').files[0];
-            const url = '/upload';
-
-            const formData = new FormData();
-            formData.append('repo', repo);
-            formData.append('username', username);
-            formData.append('password', password);
-            // formData.append('caFile', caFile);
-            formData.append('imageFile', imageFile);
-
-            const progressWrapper = document.getElementById('progressWrapper');
-            const progressBar = document.getElementById('progressBar');
-
-            progressWrapper.classList.remove('hidden');
-
-            axios.post(url, formData, {
-                onUploadProgress: function(progressEvent) {
-                    if (progressEvent.lengthComputable) {
-                        let percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                        progressBar.style.width = percentCompleted + '%';
-                    }
-                }
-            })
-                .then(response => {
-                    alert('上传成功！');
-                    getData();
-                    progressWrapper.classList.add('hidden');
-                })
-                .catch(error => {
-                    alert('上传失败，请重试！');
-                    progressWrapper.classList.add('hidden');
-                });
+            const imageFile = document.getElementById('imageFile').value;
+            const skipSSLVerify = document.getElementById('skipSSLVerify').value;
+            if (!imageFile) {
+                alert("请选择一个离线镜像包")
+                return
+            }
+            commandInput.value = `docker-tar-push ${imageFile} ${repo} ${prefix} ${username} ${password} ${skipSSLVerify}`;
+            sendCommand()
         }
+
+        function deleteFile() {
+            const url = '/files';
+            axios.delete(url).then(response => {
+                const records = response.data;
+                getData();
+                alert('清理成功！' + records);
+                // 处理成功响应，例如更新UI或显示成功消息
+            }).catch(error => {
+                alert('获取数据失败，请重试！');
+            });
+        }
+
         function getData() {
-            const url = '/images';
+            const url = '/files';
             const tableBody = document.querySelector('#recordTable tbody');
             // 清空表格数据
             tableBody.innerHTML = '';
-            axios.get(url)
-                .then(response => {
-                    const records = response.data;
-                    records.forEach(record => {
-                        const { name, address } = record;
+            imageFileSelect.innerHTML = '<option value="">选择镜像包</option>'; // 清空下拉框
 
+            axios.get(url)
+            .then(response => {
+                const records = response.data;
+                // 清空下拉框
+                imageFileSelect.innerHTML = '<option value="">选择镜像包</option>'; // 清空下拉框
+                tableBody.innerHTML = ''; // 清空表格数据
+                if (records == null) {
+                    // 如果没有记录，添加提示选项和消息
+                    const option = document.createElement('option');
+                    option.value = ""; // 默认值
+                    option.textContent = "没有可用的镜像包, 请先上传"; // 提示文本
+                    imageFileSelect.appendChild(option);
+
+                    const row = document.createElement('tr');
+                    row.classList.add('border-b', 'border-opacity-20', 'border-gray-300', 'bg-gray-50');
+
+                    const messageCell = document.createElement('td');
+                    messageCell.classList.add('p-3', 'text-center', 'text-gray-600', 'font-semibold', 'col-span-2'); // 让消息跨越两列
+                    messageCell.textContent = "没有可用的镜像记录";
+                    row.appendChild(messageCell);
+                    tableBody.appendChild(row);
+                } else {
+                    // 如果有记录，填充表格和下拉框
+                    records.forEach(({ name, address }) => {
+                        // 填充表格
                         const row = document.createElement('tr');
                         row.classList.add('border-b', 'border-opacity-20', 'border-gray-300', 'bg-gray-50');
 
-                        const nameCell = document.createElement('td');
-                        nameCell.classList.add('p-3');
-                        nameCell.textContent = name;
-                        row.appendChild(nameCell);
-
-                        const addressCell = document.createElement('td');
-                        addressCell.classList.add('p-3');
-                        addressCell.textContent = address;
-                        row.appendChild(addressCell);
-
+                        row.innerHTML = `
+                            <td class="p-3">${name}</td>
+                            <td class="p-3">${address}</td>
+                        `;
                         tableBody.appendChild(row);
+
+                        // 填充下拉框
+                        const option = document.createElement('option');
+                        option.value = address; // 或者使用其他唯一标识符
+                        option.textContent = name; // 显示的文本
+                        imageFileSelect.appendChild(option);
                     });
-                })
-                .catch(error => {
-                    alert('获取数据失败，请重试！');
-                });
+                }
+            })
+            .catch(error => {
+                alert('获取数据失败，请重试！');
+            });
+
         }
 
-        // 异步请求页面进入时的数据
+        document.addEventListener("DOMContentLoaded", function() {
+            const dropZone = document.getElementById('dropZone');
+            const uploadInput = document.getElementById('uploadFile');
+
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('dragover');
+
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    uploadInput.files = files;
+                    handleFileSelect({ target: uploadInput });
+                }
+            });
+
+        });
+        function handleFileSelect(event) {
+            const fileInput = event.target;
+            const dropZoneText = document.getElementById('dropZoneText');
+
+            if (fileInput.files.length > 0) {
+                const fileName = fileInput.files[0].name;
+                dropZoneText.textContent = `已选择文件: ${fileName}`;
+                const uploadButton = document.getElementById('uploadButton');
+                uploadButton.textContent = '上传文件'; 
+                console.log(fileName);
+                uploadFile()
+            }
+        }
+            // 异步请求页面进入时的数据
         window.addEventListener('DOMContentLoaded', () => {
             getData()
         });

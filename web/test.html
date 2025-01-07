@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拖拽上传文件组件</title>
+    <link rel="stylesheet" href="./static/tailwind.min.css">
+    <style>
+        .dropzone-container {
+            @apply p-16 bg-[#f7fafc] border border-solid border-[#e2e8f0] rounded-lg;
+        }
+        .hidden-input {
+            @apply opacity-0 overflow-hidden absolute w-1 h-2;
+        }
+        .file-label {
+            @apply text-xl block cursor-pointer;
+        }
+        .preview-container {
+            @apply mt-4;
+        }
+        .preview-card {
+            @apply flex items-center justify-between bg-white p-4 mb-2 rounded-lg shadow-md;
+        }
+    </style>
+</head>
+<body>
+    <div class="flex items-center justify-center h-screen">
+        <div class="dropzone-container" id="dropzone">
+            <input type="file" multiple name="file" id="fileInput" class="hidden-input" accept=".pdf,.jpg,.jpeg,.png">
+            <label for="fileInput" class="file-label">
+                <div id="dragText">将文件拖到此处或单击此处上传。</div>
+            </label>
+            <div class="preview-container" id="previewContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const dragText = document.getElementById('dragText');
+        const previewContainer = document.getElementById('previewContainer');
+
+        let isDragging = false;
+
+        // 监听拖拽事件
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            isDragging = true;
+            dragText.textContent = '释放以将文件放到此处。';
+            dropzone.classList.add('border-blue-500');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            isDragging = false;
+            dragText.textContent = '将文件拖到此处或单击此处上传。';
+            dropzone.classList.remove('border-blue-500');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            isDragging = false;
+            dragText.textContent = '将文件拖到此处或单击此处上传。';
+            dropzone.classList.remove('border-blue-500');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        // 监听文件选择事件
+        fileInput.addEventListener('change', () => {
+            handleFiles(fileInput.files);
+        });
+
+        // 处理文件
+        function handleFiles(files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const previewCard = document.createElement('div');
+                previewCard.className = 'preview-card';
+                previewCard.innerHTML = `
+                    <div>
+                        <p>${file.name}</p>
+                    </div>
+                    <div>
+                        <button class="ml-2" type="button" title="Remove file" onclick="removeFile(${i})">
+                            <b>×</b>
+                        </button>
+                    </div>
+                `;
+                previewContainer.appendChild(previewCard);
+            }
+        }
+
+        // 删除文件
+        function removeFile(index) {
+            const previewCards = previewContainer.children;
+            previewContainer.removeChild(previewCards[index]);
+        }
+    </script>
+</body>
+</html>

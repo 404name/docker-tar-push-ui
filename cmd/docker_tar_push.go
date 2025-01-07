@@ -22,7 +22,7 @@ var (
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			log.SetLogLevel(log.Level(logLevel))
-			imagePush := push.NewImagePush(args[0], registryURL, username, password, imagePrefix, skipSSLVerify)
+			imagePush := push.NewImagePush(args[0], registryURL, imagePrefix, username, password, skipSSLVerify, nil)
 			imagePush.Push()
 		},
 	}

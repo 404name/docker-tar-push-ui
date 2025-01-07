@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -17,7 +18,7 @@ import (
 	"github.com/silenceper/log"
 )
 
-//go:embed index.html static/*
+//go:embed index.html test.html static/*
 var staticFiles embed.FS
 
 var (
@@ -38,18 +39,19 @@ type Command struct {
     mu        sync.Mutex
 }
 
-func Server() {
+func Server(port string) {
 	r := gin.Default()
 	// 首页接口
 	r.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/static")
 	})
 	// 静态文件目录
-	r.StaticFS("/files", http.FS(staticFiles))
+	// r.StaticFS("/files", http.FS(staticFiles))
 	r.StaticFS("/static", http.FS(staticFiles))
 
 	r.POST("/upload", uploadHandler)
-	r.GET("/images", getImagesHandler)
+	r.GET("/files", getImagesHandler)
+	r.DELETE("/files", deleteImagesHandler)
 
     // r.GET("/ws", handleWebSocket)
 	// WebSocket 路由
@@ -72,63 +74,53 @@ func Server() {
 		})
 		m.HandleRequest(c.Writer, c.Request) // 访问 /webterminal 时将转交给melody处理
 	})
-	r.Run(":8088")
+	r.Run(":" + port)
 }
 
 func uploadHandler(c *gin.Context) {
-	repo := c.PostForm("repo")
-	username := c.PostForm("username")
-	password := c.PostForm("password")
-
-	// TODO 实现CA证书逻辑
-	// caFile, err := c.FormFile("caFile")
-	// if err != nil {
-	// 	log.Println("获取CA证书失败:", err)
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "获取CA证书失败"})
-	// 	return
-	// }
-
-	imageFile, err := c.FormFile("imageFile")
+	imageFile, err := c.FormFile("file")
 	if err != nil {
 		log.Errorf("获取镜像包失败: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "获取镜像包失败"})
 		return
 	}
-
-	log.Infof("镜像仓库地址: %s\n", repo)
-	log.Infof("账号: %s\n", username)
-	log.Infof("密码: %s\n", password)
-	// log.Printf("CA证书: %s\n", caFile.Filename)
 	log.Infof("离线镜像包: %s\n", imageFile.Filename)
-
-	// 模拟存储文件
-	// c.SaveUploadedFile(caFile, "./uploads/"+caFile.Filename)
-	c.SaveUploadedFile(imageFile, "./uploads/"+imageFile.Filename)
-	imagePush := push.NewImagePush("./uploads/"+imageFile.Filename, repo, username, password, "library/", true)
-	imagePush.Push()
-	imageURL := fmt.Sprintf("%s/%s", repo, "library/")
-	c.JSON(http.StatusOK, gin.H{"message": "镜像上传成功" + imageURL})
+	c.SaveUploadedFile(imageFile, path.Join(uploadDir, imageFile.Filename))
+	c.JSON(http.StatusOK, gin.H{"message": "文件上传成功" + imageFile.Filename})
 }
+
 func getImagesHandler(c *gin.Context) {
-    files, err := os.ReadDir("uploads")
+	var records []map[string]string
+    files, err := os.ReadDir(uploadDir)
+    if err == nil {
+        for _, file := range files {
+			if !file.IsDir() {
+				record := map[string]string{
+					"name":    file.Name(),
+					"address": path.Join(uploadDir, file.Name()),
+				}
+				records = append(records, record)
+			}
+		}
+    }
+    c.JSON(http.StatusOK, records)
+}
+
+func deleteImagesHandler(c *gin.Context) {
+    // 确认要删除的目录
+    dirPath := uploadDir
+
+    // 删除目录及其内容
+    err := os.RemoveAll(dirPath)
     if err != nil {
-        c.String(http.StatusInternalServerError, "Failed to read files: %v", err)
+        c.String(http.StatusInternalServerError, "Failed to delete files: %v", err)
         return
     }
 
-    var records []map[string]string
-    for _, file := range files {
-        if !file.IsDir() {
-            record := map[string]string{
-                "name":    file.Name(),
-                "address": fmt.Sprintf("/files/%s", file.Name()),
-            }
-            records = append(records, record)
-        }
-    }
-
-    c.JSON(http.StatusOK, records)
+    // 返回成功响应
+    c.String(http.StatusOK, "All files deleted successfully")
 }
+
 
 func handleWebSocket(c *gin.Context) {
     m := melody.New() // 创建 Melody 实例
@@ -169,7 +161,24 @@ func handleCommand(s *melody.Session, command string) error {
 
     switch cmd {
     case "docker-tar-push":
-		return s.Write([]byte(help())) // 发送帮助信息
+		if len(parts) < 7 {
+			return s.Write([]byte("请参考：docker-tar-push 镜像包 镜像前缀 镜像地址 账号 密码 ture\n")) // 发送帮助信息
+		}
+		log.Infof("离线镜像包: %s\n", parts[1])
+		log.Infof("镜像仓库地址: %s\n", parts[2])
+		log.Infof("镜像前缀: %s\n", parts[3])
+		log.Infof("账号: %s\n", parts[4])
+		// log.Infof("密码: %s\n", parts[5])
+		log.Infof("跳过HTTPS验证: %s\n", parts[6])
+		go func() {
+			skipSSLVerify := false
+			if parts[6] == "true" {
+				skipSSLVerify = true
+			}
+			imagePush := push.NewImagePush(parts[1], parts[2], parts[3], parts[4], parts[5], skipSSLVerify, s)
+			imagePush.Push()
+		}()
+		return s.Write([]byte("推送中\n")) // 发送帮助信息
     case "ls":
         return s.Write([]byte(listFiles(uploadDir))) // 发送文件列表
 	case "exit":
@@ -190,12 +199,6 @@ func help() string {
 }
 
 func listFiles(dir string) []byte {
-    // 获取目录的绝对路径
-    absDir, err := filepath.Abs(dir)
-    if err != nil {
-        return []byte(fmt.Sprintf("failed to get absolute path: %v", err))
-    }
-
     files, err := os.ReadDir(dir)
     if err != nil {
         return []byte(fmt.Sprintf("failed to list files: %v", err))
@@ -204,7 +207,7 @@ func listFiles(dir string) []byte {
     var fileList string
     for _, file := range files {
         // 获取文件的绝对路径
-        filePath := filepath.Join(absDir, file.Name())
+        filePath := filepath.Join(uploadDir, file.Name())
         fileList += filePath + "\n"
     }
     return []byte(fileList)
@@ -212,6 +215,7 @@ func listFiles(dir string) []byte {
 
 func executeDockerTarPush(s *melody.Session, runArgs []string) error {
 	commandSessions[s].mu.Lock()
+	commandSessions[s].stop = false
 	defer commandSessions[s].mu.Unlock()
 	//TODO 解决这里卡死的问题
     // 分割命令和参数
@@ -252,7 +256,7 @@ func executeDockerTarPush(s *melody.Session, runArgs []string) error {
         buf := make([]byte, 1024)
         for {
 			if cs := commandSessions[s]; cs != nil && cs.stop {
-				cs.stop = false
+				log.Infof("commandSessions[s].stop: %v", cs.stop)
 				break
 			}
             n, err := stdout.Read(buf)
@@ -273,7 +277,7 @@ func executeDockerTarPush(s *melody.Session, runArgs []string) error {
         buf := make([]byte, 1024)
         for {
 			if cs := commandSessions[s]; cs != nil && cs.stop {
-				cs.stop = false
+				log.Infof("commandSessions[s].stop: %v", cs.stop)
 				break
 			}
             n, err := stderr.Read(buf)

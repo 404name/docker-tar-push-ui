@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/mholt/archiver/v3"
+	"github.com/olahol/melody"
 	"github.com/opencontainers/go-digest"
 	"github.com/silenceper/log"
 )
@@ -32,10 +34,11 @@ type ImagePush struct {
 	tmpDir           string
 	httpClient       *http.Client
 	imagePrefix      string // 指定镜像仓库名称
+	session          *melody.Session
 }
 
 //NewImagePush new
-func NewImagePush(archivePath, registryEndpoint, username, password, imagePrefix string, skipSSLVerify bool) *ImagePush {
+func NewImagePush(archivePath, registryEndpoint, imagePrefix, username, password string, skipSSLVerify bool,s *melody.Session) *ImagePush {
 	registryEndpoint = strings.TrimSuffix(registryEndpoint, "/")
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: skipSSLVerify},
@@ -49,6 +52,8 @@ func NewImagePush(archivePath, registryEndpoint, username, password, imagePrefix
 		tmpDir:           "./tmp/",
 		httpClient:       &http.Client{Transport: tr},
 		imagePrefix:      imagePrefix,
+		// 用于跟前端实时推送日志的ws session
+		session: 		  s,		
 	}
 }
 
@@ -59,16 +64,40 @@ type Manifest struct {
 	Layers   []string `json:"Layers"`
 }
 
+// 用于跟前端实时推送日志的log实现
+func (imagePush *ImagePush) Errorf(format string, v ...interface{}) {
+	log.Errorf(format, v...)
+	if imagePush.session != nil && ! imagePush.session.IsClosed() {
+		imagePush.session.Write([]byte("[ERROR] " + fmt.Sprintf(format, v...)+ "\n"))
+	}
+}
+
+
+func (imagePush *ImagePush) Infof(format string, v ...interface{}) {
+	log.Infof(format, v...)
+	if imagePush.session != nil && ! imagePush.session.IsClosed() {
+		imagePush.session.Write([]byte("[INFO] " + fmt.Sprintf(format, v...)+ "\n"))
+	}
+}
+
+
+func (imagePush *ImagePush) Debugf(format string, v ...interface{}) {
+	log.Debugf(format, v...)
+	if imagePush.session != nil && ! imagePush.session.IsClosed() {
+		imagePush.session.Write([]byte("[DEBUG] " + fmt.Sprintf(format, v...) + "\n"))
+	}
+}
+
 //Push push archive image
 func (imagePush *ImagePush) Push() {
 	//判断tar包是否正常
 	if !util.Exists(imagePush.archivePath) {
-		log.Errorf("%s not exists", imagePush.archivePath)
+		imagePush.Errorf("%s not exists", imagePush.archivePath)
 		return
 	}
 	imageFiles, err := util.FilesPath(imagePush.archivePath)
 	if err != nil {
-		log.Errorf("get image FilesPath err: %v", err)
+		imagePush.Errorf("get image FilesPath err: %v", err)
 		return
 	}
 	for _, imagepath := range imageFiles {
@@ -79,57 +108,56 @@ func (imagePush *ImagePush) Push() {
 // push预先处理
 func (imagePush *ImagePush) preHandle(imagepath string) error {
 	imagePush.tmpDir = fmt.Sprintf("./tmp/docker-tar-push/%d", time.Now().UnixNano())
-	log.Infof("extract archive file %s to %s", imagepath, imagePush.tmpDir)
+	imagePush.Infof("extract archive file %s to %s", imagepath, imagePush.tmpDir)
 
 	defer func() {
 		err := os.RemoveAll(imagePush.tmpDir)
 		if err != nil {
-			log.Errorf("remove tmp dir %s error, %v", imagePush.tmpDir, err)
+			imagePush.Errorf("remove tmp dir %s error, %v", imagePush.tmpDir, err)
 		}
 	}()
 
 	err := archiver.Unarchive(imagepath, imagePush.tmpDir)
 	if err != nil {
-		// log.Errorf("tar unarchive failed, %+v", err)
-		log.Infof("use gzip unarchive file %s to %s", imagepath, imagePush.tmpDir)
+		// imagePush.Errorf("tar unarchive failed, %+v", err)
+		imagePush.Infof("use gzip unarchive file %s to %s", imagepath, imagePush.tmpDir)
 	}
 	// gzip 解压
 	if err != nil {
 		if err = util.Decompress(imagepath, imagePush.tmpDir); err != nil {
-			log.Errorf("gzip unarchive failed, %+v", err)
+			imagePush.Errorf("gzip unarchive failed, %+v", err)
 			return err
 		}
 	}
 
 	// 封装image
-	data, err := ioutil.ReadFile(imagePush.tmpDir + "/manifest.json")
+	data, err := ioutil.ReadFile(path.Join(imagePush.tmpDir, "manifest.json"))
 	if err != nil {
-		log.Errorf("read manifest.json failed, %+v", err)
+		imagePush.Errorf("read manifest.json failed, %+v", err)
 		return err
 	}
 	var manifestObjs []*Manifest
 	err = json.Unmarshal(data, &manifestObjs)
 	if err != nil {
-		log.Errorf("unmarshal manifest.json failed, %+v", err)
+		imagePush.Errorf("unmarshal manifest.json failed, %+v", err)
 		return err
 	}
 
 	for _, manifestObj := range manifestObjs {
-		log.Infof("start push image archive %s", imagePush.archivePath)
+		imagePush.Infof("start push image archive %s", imagePush.archivePath)
 		for _, repo := range manifestObj.RepoTags {
 			//repo = "test-tar:test-tag"
 			image, tag := util.ParseImageAndTag(repo)
-			// TODO 改成拼接，防止多个/或者没有/
-			repoImage := imagePush.imagePrefix + image
-			log.Debugf("image=%s,tag=%s", image, tag)
+			repoImage := path.Join(imagePush.imagePrefix, image)
+			imagePush.Debugf("image=%s,tag=%s", image, tag)
 
 			//push layer
 			var layerPaths []string
 			for _, layer := range manifestObj.Layers {
-				layerPath := imagePush.tmpDir + "/" + layer
+				layerPath := path.Join(imagePush.tmpDir, layer)
 				err = imagePush.pushLayer(layer, repoImage)
 				if err != nil {
-					log.Errorf("pushLayer %s Failed, %v", layer, err)
+					imagePush.Errorf("pushLayer %s Failed, %v", layer, err)
 					return err
 				}
 				layerPaths = append(layerPaths, layerPath)
@@ -138,20 +166,20 @@ func (imagePush *ImagePush) preHandle(imagepath string) error {
 			//push image config
 			err = imagePush.pushConfig(manifestObj.Config, repoImage)
 			if err != nil {
-				log.Errorf("push image config failed,%+v", err)
+				imagePush.Errorf("push image config failed,%+v", err)
 				return err
 			}
 
 			//push manifest
-			log.Infof("start push manifest")
+			imagePush.Infof("start push manifest")
 			err = imagePush.pushManifest(layerPaths, manifestObj.Config, repoImage, tag)
 			if err != nil {
-				log.Errorf("push manifest error,%+v", err)
+				imagePush.Errorf("push manifest error,%+v", err)
 			}
-			log.Infof("push manifest done")
+			imagePush.Infof("push manifest done")
 		}
 	}
-	log.Infof("push image archive %s done\n\n", imagepath)
+	imagePush.Infof("push image archive %s done\n\n", imagepath)
 	return nil
 }
 
@@ -166,7 +194,7 @@ func (imagePush *ImagePush) checkLayerExist(file, image string) (bool, error) {
 		return false, err
 	}
 	req.SetBasicAuth(imagePush.username, imagePush.password)
-	log.Debugf("PUT %s", url)
+	imagePush.Debugf("PUT %s", url)
 	resp, err := imagePush.httpClient.Do(req)
 	if err != nil {
 		return false, err
@@ -182,7 +210,7 @@ func (imagePush *ImagePush) checkLayerExist(file, image string) (bool, error) {
 }
 
 func (imagePush *ImagePush) pushManifest(layersPaths []string, imageConfig, image, tag string) error {
-	configPath := imagePush.tmpDir + "/" + imageConfig
+	configPath := path.Join(imagePush.tmpDir, imageConfig)
 	obj := &schema2.Manifest{}
 	obj.SchemaVersion = schema2.SchemaVersion.SchemaVersion
 	obj.MediaType = schema2.MediaTypeManifest
@@ -220,22 +248,22 @@ func (imagePush *ImagePush) pushManifest(layersPaths []string, imageConfig, imag
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s", imagePush.registryEndpoint, image, tag)
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(data))
 	if err != nil {
-		log.Errorf("push manifest request error,%+v", err)
+		imagePush.Errorf("push manifest request error,%+v", err)
 		return err
 	}
 	req.SetBasicAuth(imagePush.username, imagePush.password)
-	log.Debugf("PUT %s", url)
+	imagePush.Debugf("PUT %s", url)
 	req.Header.Set("Content-Type", schema2.MediaTypeManifest)
 	resp, err := imagePush.httpClient.Do(req)
 	if err != nil {
-		log.Errorf("push manifest post error,%+v", err)
+		imagePush.Errorf("push manifest post error,%+v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("read url /manifests/ body err: %v", err)
+		imagePush.Errorf("read url /manifests/ body err: %v", err)
 		return err
 	}
 	if resp.StatusCode != http.StatusCreated {
@@ -245,7 +273,7 @@ func (imagePush *ImagePush) pushManifest(layersPaths []string, imageConfig, imag
 }
 
 func (imagePush *ImagePush) pushConfig(imageConfig, image string) error {
-	configPath := imagePush.tmpDir + "/" + imageConfig
+	configPath := path.Join(imagePush.tmpDir, imageConfig)
 	// check image config exists
 	exist, err := imagePush.checkLayerExist(configPath, image)
 	if err != nil {
@@ -253,11 +281,11 @@ func (imagePush *ImagePush) pushConfig(imageConfig, image string) error {
 
 	}
 	if exist {
-		log.Infof("%s Already exist", imageConfig)
+		imagePush.Infof("%s Already exist", imageConfig)
 		return nil
 	}
 
-	log.Infof("start push image config %s", imageConfig)
+	imagePush.Infof("start push image config %s", imageConfig)
 	url, err := imagePush.startPushing(image)
 	if err != nil {
 		return fmt.Errorf("startPushing Error, %+v", err)
@@ -266,14 +294,14 @@ func (imagePush *ImagePush) pushConfig(imageConfig, image string) error {
 }
 
 func (imagePush *ImagePush) pushLayer(layer, image string) error {
-	layerPath := imagePush.tmpDir + "/" + layer
+	layerPath := path.Join(imagePush.tmpDir, layer)
 	// check layer exists
 	exist, err := imagePush.checkLayerExist(layerPath, image)
 	if err != nil {
 		return fmt.Errorf("check layer exist failed,%+v", err)
 	}
 	if exist {
-		log.Infof("%s Already exist", layer)
+		imagePush.Infof("%s Already exist", layer)
 		return nil
 	}
 	url, err := imagePush.startPushing(image)
@@ -284,7 +312,7 @@ func (imagePush *ImagePush) pushLayer(layer, image string) error {
 }
 
 func (imagePush *ImagePush) chunkUpload(file, url string) error {
-	log.Debugf("push file %s to %s", file, url)
+	imagePush.Debugf("push file %s to %s", file, url)
 	f, err := os.Open(file)
 	if err != nil {
 		return err
@@ -306,7 +334,7 @@ func (imagePush *ImagePush) chunkUpload(file, url string) error {
 		}
 		offset = index + n
 		index = offset
-		log.Infof("Pushing %s ... %.2f%s", file, (float64(offset)/float64(contentSize))*100, "%")
+		imagePush.Infof("Pushing %s ... %.2f%s", file, (float64(offset)/float64(contentSize))*100, "%")
 
 		chunk := buf[0:n]
 
@@ -323,7 +351,7 @@ func (imagePush *ImagePush) chunkUpload(file, url string) error {
 				return err
 			}
 			req.SetBasicAuth(imagePush.username, imagePush.password)
-			log.Debugf("PUT %s", url)
+			imagePush.Debugf("PUT %s", url)
 			req.Header.Set("Content-Type", "application/octet-stream")
 			req.Header.Set("Content-Length", fmt.Sprintf("%d", n))
 			req.Header.Set("Content-Range", fmt.Sprintf("%d-%d", index, offset))
@@ -344,7 +372,7 @@ func (imagePush *ImagePush) chunkUpload(file, url string) error {
 			req.Header.Set("Content-Type", "application/octet-stream")
 			req.Header.Set("Content-Length", fmt.Sprintf("%d", n))
 			req.Header.Set("Content-Range", fmt.Sprintf("%d-%d", index, offset))
-			log.Debugf("PATCH %s", url)
+			imagePush.Debugf("PATCH %s", url)
 			resp, err := imagePush.httpClient.Do(req)
 			if err != nil {
 				return err
