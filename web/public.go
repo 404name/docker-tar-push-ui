@@ -22,8 +22,8 @@ import (
 var staticFiles embed.FS
 
 var (
-	uploadDir       = "./uploads"                        // 工作路径
-	commandSessions = make(map[*melody.Session]*Command) // 存储每个用户的命令状态
+	uploadDir = "./uploads" // 工作路径
+	mu        sync.Mutex
 )
 
 var upgrader = websocket.Upgrader{
@@ -32,15 +32,9 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-type Command struct {
-	cmd      string
-	outputCh chan string
-	stop     bool
-	mu       sync.Mutex
-}
-
 func Server(port string) {
 	r := gin.Default()
+	log.SetLogLevel(log.Level(log.LevelInfo))
 	// 首页接口
 	r.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/static")
@@ -53,7 +47,6 @@ func Server(port string) {
 	r.GET("/files", getImagesHandler)
 	r.DELETE("/files", deleteImagesHandler)
 
-	// r.GET("/ws", handleWebSocket)
 	// WebSocket 路由
 	m := melody.New() // melody用于实现WebSocket功能
 	r.GET("/webterminal", func(c *gin.Context) {
@@ -69,7 +62,7 @@ func Server(port string) {
 			log.Infof("Received message: %s", msg)
 			if err := handleCommand(s, string(msg)); err != nil {
 				log.Errorf("执行命令出错: %v", err)
-				s.Write([]byte(fmt.Sprintf("Error: %s", err)))
+				s.Write([]byte(fmt.Sprintf("[ERROR]: %s\n", err)))
 			}
 		})
 		m.HandleRequest(c.Writer, c.Request) // 访问 /webterminal 时将转交给melody处理
@@ -121,42 +114,25 @@ func deleteImagesHandler(c *gin.Context) {
 	c.String(http.StatusOK, "All files deleted successfully")
 }
 
-func handleWebSocket(c *gin.Context) {
-	m := melody.New() // 创建 Melody 实例
-
-	m.HandleMessage(func(s *melody.Session, msg []byte) {
-		if err := handleCommand(s, string(msg)); err != nil {
-			log.Errorf("执行命令出错: %v", err)
-			s.Write([]byte(fmt.Sprintf("Error: %s", err)))
-		}
-	})
-	m.HandleDisconnect(func(s *melody.Session) {
-		delete(commandSessions, s)
-		log.Infof("WebSocket 断开连接")
-	})
-	if err := m.HandleRequest(c.Writer, c.Request); err != nil {
-		log.Errorf("处理 WebSocket 请求出错: %v", err)
-	}
-}
-
 func handleCommand(s *melody.Session, command string) error {
-	cs := commandSessions[s]
-	if cs == nil {
-		cs = &Command{
-			cmd:      command,
-			stop:     false,
-			outputCh: make(chan string),
-		}
-		commandSessions[s] = cs
-	}
+	mu.Lock()
+	defer mu.Unlock()
 	// 按空格切割命令
-	parts := strings.Fields(command) // 将命令按空格分割成多个部分
+	parts := strings.Fields(command)
 	if len(parts) == 0 {
-		return nil // 如果没有命令，直接返回
+		return nil
 	}
+	cmd := parts[0]
 
-	cmd := parts[0] // 第一个部分是命令
-	// args := parts[1:] // 后续部分是参数
+	// 如果是退出指令，则优先判断
+	if cmd == "exit" {
+		s.Set("taskInProgress", false)
+		return nil
+	}
+	// 检查当前任务是否正在运行（只有长连接的请求，才会设置这个变量）
+	if inProgress, exists := s.Get("taskInProgress"); exists && inProgress.(bool) {
+		return fmt.Errorf("请等待上一个命令执行完毕")
+	}
 
 	switch cmd {
 	case "docker-tar-push":
@@ -170,19 +146,19 @@ func handleCommand(s *melody.Session, command string) error {
 		// log.Infof("密码: %s\n", parts[5])
 		log.Infof("跳过HTTPS验证: %s\n", parts[6])
 		go func() {
+			s.Set("taskInProgress", true)
+			defer s.Set("taskInProgress", false)
 			skipSSLVerify := false
 			if parts[6] == "true" {
 				skipSSLVerify = true
 			}
+
 			imagePush := push.NewImagePush(parts[1], parts[2], parts[3], parts[4], parts[5], skipSSLVerify, s)
 			imagePush.Push()
 		}()
 		return s.Write([]byte("推送中\n")) // 发送帮助信息
 	case "ls":
 		return s.Write([]byte(listFiles(uploadDir)))
-	case "exit":
-		cs.stop = true
-		return nil
 	case "help":
 		return s.Write([]byte(help()))
 	default:
@@ -194,7 +170,7 @@ func handleCommand(s *melody.Session, command string) error {
 
 func help() string {
 	return `WELCOME 欢迎使用 镜像UI上传工具
-_____ __  __          _____ ______      _    _ _____  _      ____          _____  
+ _____ __  __          _____ ______      _    _ _____  _      ____          _____  
 |_   _|  \/  |   /\   / ____|  ____|    | |  | |  __ \| |    / __ \   /\   |  __ \ 
   | | | \  / |  /  \ | |  __| |__ ______| |  | | |__) | |   | |  | | /  \  | |  | |
   | | | |\/| | / /\ \| | |_ |  __|______| |  | |  ___/| |   | |  | |/ /\ \ | |  | |
@@ -224,9 +200,6 @@ func listFiles(dir string) []byte {
 }
 
 func executeDockerTarPush(s *melody.Session, runArgs []string) error {
-	commandSessions[s].mu.Lock()
-	commandSessions[s].stop = false
-	defer commandSessions[s].mu.Unlock()
 	//TODO 解决这里卡死的问题
 	// 分割命令和参数
 	// runArgs := []string{"C:\\Users\\User\\go\\src\\mq.code.sangfor.org\\12626\\image-upload-portal\\docker-tar-push.exe"} // 假设 docker-tar-push.exe 在当前目录下
@@ -265,10 +238,6 @@ func executeDockerTarPush(s *melody.Session, runArgs []string) error {
 		defer stdout.Close()
 		buf := make([]byte, 1024)
 		for {
-			if cs := commandSessions[s]; cs != nil && cs.stop {
-				log.Infof("commandSessions[s].stop: %v", cs.stop)
-				break
-			}
 			n, err := stdout.Read(buf)
 			if n > 0 {
 				// 将输出发送到 WebSocket
@@ -286,10 +255,6 @@ func executeDockerTarPush(s *melody.Session, runArgs []string) error {
 		defer stderr.Close()
 		buf := make([]byte, 1024)
 		for {
-			if cs := commandSessions[s]; cs != nil && cs.stop {
-				log.Infof("commandSessions[s].stop: %v", cs.stop)
-				break
-			}
 			n, err := stderr.Read(buf)
 			if n > 0 {
 				// 将错误输出发送到 WebSocket

@@ -37,8 +37,8 @@ type ImagePush struct {
 	session          *melody.Session
 }
 
-//NewImagePush new
-func NewImagePush(archivePath, registryEndpoint, imagePrefix, username, password string, skipSSLVerify bool,s *melody.Session) *ImagePush {
+// NewImagePush new
+func NewImagePush(archivePath, registryEndpoint, imagePrefix, username, password string, skipSSLVerify bool, s *melody.Session) *ImagePush {
 	registryEndpoint = strings.TrimSuffix(registryEndpoint, "/")
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: skipSSLVerify},
@@ -53,11 +53,11 @@ func NewImagePush(archivePath, registryEndpoint, imagePrefix, username, password
 		httpClient:       &http.Client{Transport: tr},
 		imagePrefix:      imagePrefix,
 		// 用于跟前端实时推送日志的ws session
-		session: 		  s,		
+		session: s,
 	}
 }
 
-//Manifest manifest.json
+// Manifest manifest.json
 type Manifest struct {
 	Config   string   `json:"Config"`
 	RepoTags []string `json:"RepoTags"`
@@ -67,28 +67,27 @@ type Manifest struct {
 // 用于跟前端实时推送日志的log实现
 func (imagePush *ImagePush) Errorf(format string, v ...interface{}) {
 	log.Errorf(format, v...)
-	if imagePush.session != nil && ! imagePush.session.IsClosed() {
-		imagePush.session.Write([]byte("[ERROR] " + fmt.Sprintf(format, v...)+ "\n"))
+	if imagePush.session != nil && !imagePush.session.IsClosed() {
+		imagePush.session.Write([]byte("[ERROR] " + fmt.Sprintf(format, v...) + "\n"))
 	}
 }
-
 
 func (imagePush *ImagePush) Infof(format string, v ...interface{}) {
 	log.Infof(format, v...)
-	if imagePush.session != nil && ! imagePush.session.IsClosed() {
-		imagePush.session.Write([]byte("[INFO] " + fmt.Sprintf(format, v...)+ "\n"))
+	if imagePush.session != nil && !imagePush.session.IsClosed() {
+		imagePush.session.Write([]byte("[INFO] " + fmt.Sprintf(format, v...) + "\n"))
 	}
 }
-
 
 func (imagePush *ImagePush) Debugf(format string, v ...interface{}) {
 	log.Debugf(format, v...)
-	if imagePush.session != nil && ! imagePush.session.IsClosed() {
-		imagePush.session.Write([]byte("[DEBUG] " + fmt.Sprintf(format, v...) + "\n"))
-	}
+	// Debug暂时不打印到界面
+	// if imagePush.session != nil && !imagePush.session.IsClosed() {
+	// 	imagePush.session.Write([]byte("[DEBUG] " + fmt.Sprintf(format, v...) + "\n"))
+	// }
 }
 
-//Push push archive image
+// Push push archive image
 func (imagePush *ImagePush) Push() {
 	//判断tar包是否正常
 	if !util.Exists(imagePush.archivePath) {
@@ -150,6 +149,13 @@ func (imagePush *ImagePush) preHandle(imagepath string) error {
 			image, tag := util.ParseImageAndTag(repo)
 			repoImage := path.Join(imagePush.imagePrefix, image)
 			imagePush.Debugf("image=%s,tag=%s", image, tag)
+
+			// 检查当前任务是否正在运行
+			if imagePush.session != nil {
+				if inProgress, exists := imagePush.session.Get("taskInProgress"); exists && !inProgress.(bool) {
+					return fmt.Errorf("任务中止，镜像停止上传")
+				}
+			}
 
 			//push layer
 			var layerPaths []string
