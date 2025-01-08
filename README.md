@@ -9,6 +9,9 @@ image-upload-portal 解决部分场景无法使用命令行上传镜像的问题
 go mod tidy
 go run ./ server
 
+docker build -t image-upload-portal:latest  .
+docker run -d --name image-upload-portal -p 8088:8088 image-upload-portal:latest
+
 **实现热加载**
 go get -u github.com/cosmtrek/air
 air init
@@ -18,9 +21,9 @@ air
 push your docker tar archive image without docker
 
 ## 功能
-- 支持gz格式的image
-- 支持对image增加前缀repo
-- 支持上传harbor
+
+- 支持上传harbor / 阿里云
+- 支持UI模式和命令行两种模式
 
 
 **用法一**  
@@ -47,6 +50,11 @@ go build -o bin/docker-tar-push cmd/docker-tar-push/main.go
 
 # TODO
 
-- [ ] dockerfile打包
+- [x] dockerfile打包
 - [ ] YAML适配
-- [ ] 支持阿里云推送
+- [x] 支持阿里云推送
+
+# 说明
+
+- 底层GO推送镜像代码来自：https://github.com/silenceper/docker-tar-push
+- 基于这个实现了指定项目组 + 支持阿里云仓库认证

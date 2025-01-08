@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-upload-portal
+  labels:
+    app: image-upload-portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: image-upload-portal
+  template:
+    metadata:
+      labels:
+        app: image-upload-portal
+    spec:
+      containers:
+      - name: image-upload-portal
+        image: image-upload-portal  # TODO 待上传dockerhub
+        ports:
+        - containerPort: 8080  # 假设你的应用监听在 8080 端口
+        env:
+        - name: ROOT
+          value: "."
+        - name: TESTDATA_DIR
+          value: "testdata"
+        - name: TMP_DIR
+          value: "tmp"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: image-upload-portal-service
+  labels:
+    app: image-upload-portal
+spec:
+  type: ClusterIP  # 或者 LoadBalancer 如果你需要外部访问
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: image-upload-portal

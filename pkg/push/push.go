@@ -35,6 +35,7 @@ type ImagePush struct {
 	httpClient       *http.Client
 	imagePrefix      string // 指定镜像仓库名称
 	session          *melody.Session
+	authToken        string
 }
 
 // NewImagePush new
@@ -150,16 +151,12 @@ func (imagePush *ImagePush) preHandle(imagepath string) error {
 			repoImage := path.Join(imagePush.imagePrefix, image)
 			imagePush.Debugf("image=%s,tag=%s", image, tag)
 
-			// 检查当前任务是否正在运行
-			if imagePush.session != nil {
-				if inProgress, exists := imagePush.session.Get("taskInProgress"); exists && !inProgress.(bool) {
-					return fmt.Errorf("任务中止，镜像停止上传")
-				}
-			}
-
 			//push layer
 			var layerPaths []string
 			for _, layer := range manifestObj.Layers {
+				if err := imagePush.checkTaskProgress(); err != nil {
+					return err
+				}
 				layerPath := path.Join(imagePush.tmpDir, layer)
 				err = imagePush.pushLayer(layer, repoImage)
 				if err != nil {
@@ -168,14 +165,18 @@ func (imagePush *ImagePush) preHandle(imagepath string) error {
 				}
 				layerPaths = append(layerPaths, layerPath)
 			}
-
+			if err := imagePush.checkTaskProgress(); err != nil {
+				return err
+			}
 			//push image config
 			err = imagePush.pushConfig(manifestObj.Config, repoImage)
 			if err != nil {
 				imagePush.Errorf("push image config failed,%+v", err)
 				return err
 			}
-
+			if err := imagePush.checkTaskProgress(); err != nil {
+				return err
+			}
 			//push manifest
 			imagePush.Infof("start push manifest")
 			err = imagePush.pushManifest(layerPaths, manifestObj.Config, repoImage, tag)
@@ -189,30 +190,99 @@ func (imagePush *ImagePush) preHandle(imagepath string) error {
 	return nil
 }
 
+// 检查当前任务是否正在运行
+func (imagePush *ImagePush) checkTaskProgress() error {
+	if imagePush.session != nil {
+		if inProgress, exists := imagePush.session.Get("taskInProgress"); exists && !inProgress.(bool) {
+			return fmt.Errorf("任务中止，镜像停止上传")
+		}
+	}
+	return nil
+}
+
 func (imagePush *ImagePush) checkLayerExist(file, image string) (bool, error) {
 	hash, err := util.Sha256Hash(file)
 	if err != nil {
+		log.Errorf("Failed to calculate SHA256 hash for file %s: %v", file, err)
 		return false, err
 	}
+
+	// 构造 URL
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s", imagePush.registryEndpoint, image, fmt.Sprintf("sha256:%s", hash))
+	log.Infof("Constructed URL: %s", url)
+
+	// 创建 HTTP 请求
 	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
+		log.Errorf("Failed to create HTTP request: %v", err)
 		return false, err
 	}
+
+	// 设置 Basic Auth
 	req.SetBasicAuth(imagePush.username, imagePush.password)
-	imagePush.Debugf("PUT %s", url)
+	if imagePush.authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+imagePush.authToken)
+	}
+	log.Infof("Set Basic Auth with username: %s", imagePush.username)
+
+	// 发送请求
+	log.Infof("Sending request to %s", url)
 	resp, err := imagePush.httpClient.Do(req)
 	if err != nil {
+		log.Errorf("Failed to send request: %v", err)
 		return false, err
 	}
-	// 404则不存在layer
-	if resp.StatusCode == http.StatusNotFound {
-		return false, nil
+	defer resp.Body.Close()
+
+	log.Infof("Received response with status code: %d", resp.StatusCode)
+
+	// 只第一次的时候处理 401 认证失败，通过失败的authHeader拿到认证地址获取到token后保存在 imagePush.authToken 中后续使用
+	if resp.StatusCode == http.StatusUnauthorized {
+		authHeader := resp.Header.Get("Www-Authenticate")
+		if authHeader != "" {
+			log.Infof("Received Www-Authenticate header: %s", authHeader)
+
+			// 如果是阿里云 Registry，调用 getToken 获取 Token
+			if isAliyunRegistry(imagePush.registryEndpoint) {
+				log.Infof("Detected Aliyun Registry, attempting to get token...")
+				token, err := getAliyunToken(authHeader, imagePush.username, imagePush.password)
+				if err != nil {
+					log.Errorf("Failed to get token: %v", err)
+					return false, err
+				}
+				imagePush.authToken = token
+				log.Infof("Successfully obtained token: %s", token)
+				// 使用 Token 重新发送请求
+				req.Header.Set("Authorization", "Bearer "+token)
+				log.Infof("Sending request with Bearer token...")
+				resp, err = imagePush.httpClient.Do(req)
+				if err != nil {
+					log.Errorf("Failed to send request with Bearer token: %v", err)
+					return false, err
+				}
+				defer resp.Body.Close()
+
+				log.Infof("Received response with status code: %d", resp.StatusCode)
+			} else {
+				// 如果不是阿里云 Registry，直接返回错误
+				log.Errorf("Authentication failed for non-Aliyun Registry: %s", authHeader)
+				return false, fmt.Errorf("authentication failed: %s", authHeader)
+			}
+		}
 	}
-	if resp.StatusCode != http.StatusOK {
+
+	// 处理响应
+	switch resp.StatusCode {
+	case http.StatusOK:
+		log.Infof("Layer exists: %s", url)
+		return true, nil
+	case http.StatusNotFound:
+		log.Infof("Layer does not exist: %s", url)
+		return false, nil
+	default:
+		log.Errorf("Unexpected status code: %d for URL: %s", resp.StatusCode, url)
 		return false, fmt.Errorf("head %s failed, statusCode is %d", url, resp.StatusCode)
 	}
-	return true, nil
 }
 
 func (imagePush *ImagePush) pushManifest(layersPaths []string, imageConfig, image, tag string) error {
@@ -258,6 +328,9 @@ func (imagePush *ImagePush) pushManifest(layersPaths []string, imageConfig, imag
 		return err
 	}
 	req.SetBasicAuth(imagePush.username, imagePush.password)
+	if imagePush.authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+imagePush.authToken)
+	}
 	imagePush.Debugf("PUT %s", url)
 	req.Header.Set("Content-Type", schema2.MediaTypeManifest)
 	resp, err := imagePush.httpClient.Do(req)
@@ -357,6 +430,9 @@ func (imagePush *ImagePush) chunkUpload(file, url string) error {
 				return err
 			}
 			req.SetBasicAuth(imagePush.username, imagePush.password)
+			if imagePush.authToken != "" {
+				req.Header.Set("Authorization", "Bearer "+imagePush.authToken)
+			}
 			imagePush.Debugf("PUT %s", url)
 			req.Header.Set("Content-Type", "application/octet-stream")
 			req.Header.Set("Content-Length", fmt.Sprintf("%d", n))
@@ -375,6 +451,9 @@ func (imagePush *ImagePush) chunkUpload(file, url string) error {
 				return err
 			}
 			req.SetBasicAuth(imagePush.username, imagePush.password)
+			if imagePush.authToken != "" {
+				req.Header.Set("Authorization", "Bearer "+imagePush.authToken)
+			}
 			req.Header.Set("Content-Type", "application/octet-stream")
 			req.Header.Set("Content-Length", fmt.Sprintf("%d", n))
 			req.Header.Set("Content-Range", fmt.Sprintf("%d-%d", index, offset))
@@ -394,20 +473,95 @@ func (imagePush *ImagePush) chunkUpload(file, url string) error {
 	return nil
 }
 
+// 这里格外再判断一次401，防止前面的认证失败，代码后续可以优化
 func (imagePush *ImagePush) startPushing(image string) (string, error) {
+	// 构造 URL
 	url := fmt.Sprintf("%s/v2/%s/blobs/uploads/", imagePush.registryEndpoint, image)
+	log.Infof("Constructed upload URL: %s", url)
+
+	// 创建 HTTP 请求
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
-		return "", err
+		log.Errorf("Failed to create upload request: %v", err)
+		return "", fmt.Errorf("failed to create upload request: %v", err)
 	}
-	req.SetBasicAuth(imagePush.username, imagePush.password)
+
+	// 设置认证信息
+	if imagePush.authToken != "" {
+		// 使用 Bearer Token 认证
+		req.Header.Set("Authorization", "Bearer "+imagePush.authToken)
+		log.Infof("Using Bearer token for authentication")
+	} else {
+		// 使用 Basic Auth 认证
+		req.SetBasicAuth(imagePush.username, imagePush.password)
+		log.Infof("Using Basic Auth for authentication with username: %s", imagePush.username)
+	}
+
+	// 发送请求
+	log.Infof("Sending upload request to %s", url)
 	resp, err := imagePush.httpClient.Do(req)
 	if err != nil {
-		return "", err
+		log.Errorf("Failed to send upload request: %v", err)
+		return "", fmt.Errorf("failed to send upload request: %v", err)
 	}
-	location := resp.Header.Get("Location")
-	if resp.StatusCode == http.StatusAccepted && location != "" {
-		return location, nil
+	defer resp.Body.Close()
+
+	log.Infof("Received upload response with status code: %d", resp.StatusCode)
+
+	// 处理 401 认证失败
+	if resp.StatusCode == http.StatusUnauthorized {
+		log.Infof("Authentication failed, attempting to get new token...")
+
+		// 获取新的 Token
+		authHeader := resp.Header.Get("Www-Authenticate")
+		if authHeader != "" && isAliyunRegistry(imagePush.registryEndpoint) {
+			token, err := getAliyunToken(authHeader, imagePush.username, imagePush.password)
+			if err != nil {
+				log.Errorf("Failed to get new token: %v", err)
+				return "", fmt.Errorf("failed to get new token: %v", err)
+			}
+
+			// 更新 authToken
+			imagePush.authToken = token
+			log.Infof("Successfully obtained new token: %s", token)
+
+			// 使用新的 Token 重新发送请求
+			req.Header.Set("Authorization", "Bearer "+token)
+			log.Infof("Retrying upload request with new token...")
+			resp, err = imagePush.httpClient.Do(req)
+			if err != nil {
+				log.Errorf("Failed to retry upload request: %v", err)
+				return "", fmt.Errorf("failed to retry upload request: %v", err)
+			}
+			defer resp.Body.Close()
+
+			log.Infof("Received retry upload response with status code: %d", resp.StatusCode)
+		} else {
+			log.Errorf("Www-Authenticate header is missing in response")
+			return "", fmt.Errorf("Www-Authenticate header is missing in response")
+		}
 	}
-	return "", fmt.Errorf("post %s status is %d", url, resp.StatusCode)
+
+	// 检查响应状态码
+	if resp.StatusCode == http.StatusAccepted {
+		// 获取 Location 头
+		location := resp.Header.Get("Location")
+		if location != "" {
+			log.Infof("Upload initiated successfully, location: %s", location)
+			return location, nil
+		} else {
+			log.Errorf("Location header is missing in response")
+			return "", fmt.Errorf("location header is missing in response")
+		}
+	} else {
+		// 读取响应体以获取更多错误信息
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Errorf("Failed to read response body: %v", err)
+			return "", fmt.Errorf("failed to read response body: %v", err)
+		}
+
+		log.Errorf("Upload failed with status code: %d, response body: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("upload failed with status code: %d, response body: %s", resp.StatusCode, string(body))
+	}
 }
