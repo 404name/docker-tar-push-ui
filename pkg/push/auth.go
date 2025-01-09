@@ -11,13 +11,9 @@ import (
 	"github.com/silenceper/log"
 )
 
-func isAliyunRegistry(registryEndpoint string) bool {
-	return strings.Contains(registryEndpoint, "aliyuncs.com")
-}
-
-func getAliyunToken(authHeader, username, password string) (string, error) {
+func getToken(authHeader, username, password string) (string, error) {
 	// 解析 Www-Authenticate 头
-	realm, service, scope, err := parseAliyunAuthHeader(authHeader)
+	realm, service, scope, err := parseAuthHeader(authHeader)
 	if err != nil {
 		log.Errorf("Failed to parse Www-Authenticate header: %v", err)
 		return "", err
@@ -86,8 +82,8 @@ func getAliyunToken(authHeader, username, password string) (string, error) {
 	return token, nil
 }
 
-func parseAliyunAuthHeader(authHeader string) (string, string, string, error) {
-	// 示例：Bearer realm="https://dockerauth.cn-hangzhou.aliyuncs.com/auth",service="registry.aliyuncs.com:cn-hangzhou:26842",scope="repository:404name/alist:pull"
+func parseAuthHeader(authHeader string) (string, string, string, error) {
+	// 示例：Bearer realm="https://dockerauth.cn-hangzhou.cs.com/auth",service="registry.cs.com:cn-hangzhou:26842",scope="repository:404name/alist:pull"
 	parts := strings.Split(authHeader, ",")
 	if len(parts) < 3 {
 		log.Errorf("Invalid Www-Authenticate header: %s", authHeader)
@@ -105,7 +101,7 @@ func parseAliyunAuthHeader(authHeader string) (string, string, string, error) {
 	// 提取 scope
 	scope := strings.TrimPrefix(parts[2], "scope=")
 	scope = strings.Trim(scope, `"`)
-	// 默认添加下推送权限，不然通过header默认拿到的都是pull，导致推送的时候权限不够
+	// TODO 需要判断下 默认添加下推送权限，不然通过header默认拿到的都是pull，导致推送的时候权限不够
 	scope += ",push"
 
 	log.Infof("Parsed Www-Authenticate header - realm: %s, service: %s, scope: %s", realm, service, scope)

@@ -6,53 +6,52 @@ image-upload-portal 解决部分场景无法使用命令行上传镜像的问题
 
 # install
 
+**运行项目**
+- linux: ./image-upload-portal server --port=8088
+- windows: ./image-upload-portal.exe server --port=8088
+- docker: docker run -d --name image-upload-portal -p 8088:8088 registry.cn-hangzhou.aliyuncs.com/404name/image-upload-portal:latest
+
+
+**本地开发**
 go mod tidy
 go run ./ server
 
 docker build -t image-upload-portal:latest  .
 docker run -d --name image-upload-portal -p 8088:8088 image-upload-portal:latest
 
+
 **实现热加载**
 go get -u github.com/cosmtrek/air
 air init
 air
 
-# docker-tar-push
-push your docker tar archive image without docker
 
 ## 功能
 
 - 支持上传harbor / 阿里云
 - 支持UI模式和命令行两种模式
 
-
-**用法一**  
-```shell
-docker-tar-push alpine:latest --registry=http://localhost:5000
-```
-
-**用法二**  
-例如将 `docker save python:3.0 > python-3.10.tar` 镜像文件推送harbor仓库, 这时需要存放至 harbor仓库 library 项目中，使用下面参数 `--image-prefix=library/` 即可。   
-```shell
-docker-tar-push /镜像目录路径 --registry=http://harbor.harbor.svc --username=admin --password=Harbor12345 --image-prefix=library/
-go run ./ docker-tar-push ./uploads/whoami.tar.gz --registry=https://10.113.66.245 --username=admin --password=Harbor-12345 --skip-ssl-verify=true --image-prefix=library/
-
-docker-tar-push \uploads\image-upload-portal.rar https://10.113.66.245 admin Harbor-12345 library/
-```
-当我们从仓库下载镜像时，它的完整名称为: `docker pull harbor.harbor.svc/library/python:3.0`  
-
-## 编译
-
-```sh
-go build -o bin/docker-tar-push cmd/docker-tar-push/main.go
-```
-
-
 # TODO
 
 - [x] dockerfile打包
+- [ ] 流水线自动打包linux+windows+docker仓库 + 自动发布tag
 - [ ] YAML适配
 - [x] 支持阿里云推送
+- [ ] 支持华为云和dockerhub等标准场景（网络限制，测试不了dockerhub）
+- [ ] 支持默认追加https://
+- [ ] 支持上传成功后提示 
+
+华为云的scope="repository:name404/alist:" 似乎需要适配下
+```
+2025/01/08 13:02:05 push.go:243: [INFO] Received Www-Authenticate header: Bearer realm="https://swr.cn-north-4.myhuaweicloud.com/swr/auth/v2/registry/auth/",service="dockyard",scope="repository:name404/alist:"
+2025/01/08 13:02:05 auth.go:107: [INFO] Parsed Www-Authenticate header - realm: https://swr.cn-north-4.myhuaweicloud.com/swr/auth/v2/registry/auth/, service: dockyard, scope: repository:name404/alist:,push
+2025/01/08 13:02:05 auth.go:22: [INFO] Parsed Www-Authenticate header - realm: https://swr.cn-north-4.myhuaweicloud.com/swr/auth/v2/registry/auth/, service: dockyard, scope: repository:name404/alist:,push
+2025/01/08 13:02:05 auth.go:31: [INFO] Constructed token request data: map[password:[355d42dfa6a82ad2ea20f69d4f846522f59b3a4d116b2180115c5a789dea9cf9] scope:[repository:name404/alist:,push] service:[dockyard] username:[cn-north-4@9OU2ASO8F9VIDXZAXKC6]]
+2025/01/08 13:02:05 auth.go:44: [INFO] Sending token request to https://swr.cn-north-4.myhuaweicloud.com/swr/auth/v2/registry/auth/
+2025/01/08 13:02:05 auth.go:53: [INFO] Received token response with status code: 404
+2025/01/08 13:02:05 auth.go:57: [ERROR] Token request failed with status code: 404
+
+```
 
 # 说明
 

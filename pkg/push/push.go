@@ -41,6 +41,10 @@ type ImagePush struct {
 // NewImagePush new
 func NewImagePush(archivePath, registryEndpoint, imagePrefix, username, password string, skipSSLVerify bool, s *melody.Session) *ImagePush {
 	registryEndpoint = strings.TrimSuffix(registryEndpoint, "/")
+	// registryEndpoint 如果没有协议，则默认添加https://
+	if !strings.HasPrefix(registryEndpoint, "http://") && !strings.HasPrefix(registryEndpoint, "https://") {
+		registryEndpoint = "https://" + registryEndpoint
+	}
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: skipSSLVerify},
 	}
@@ -241,33 +245,24 @@ func (imagePush *ImagePush) checkLayerExist(file, image string) (bool, error) {
 		authHeader := resp.Header.Get("Www-Authenticate")
 		if authHeader != "" {
 			log.Infof("Received Www-Authenticate header: %s", authHeader)
-
-			// 如果是阿里云 Registry，调用 getToken 获取 Token
-			if isAliyunRegistry(imagePush.registryEndpoint) {
-				log.Infof("Detected Aliyun Registry, attempting to get token...")
-				token, err := getAliyunToken(authHeader, imagePush.username, imagePush.password)
-				if err != nil {
-					log.Errorf("Failed to get token: %v", err)
-					return false, err
-				}
-				imagePush.authToken = token
-				log.Infof("Successfully obtained token: %s", token)
-				// 使用 Token 重新发送请求
-				req.Header.Set("Authorization", "Bearer "+token)
-				log.Infof("Sending request with Bearer token...")
-				resp, err = imagePush.httpClient.Do(req)
-				if err != nil {
-					log.Errorf("Failed to send request with Bearer token: %v", err)
-					return false, err
-				}
-				defer resp.Body.Close()
-
-				log.Infof("Received response with status code: %d", resp.StatusCode)
-			} else {
-				// 如果不是阿里云 Registry，直接返回错误
-				log.Errorf("Authentication failed for non-Aliyun Registry: %s", authHeader)
-				return false, fmt.Errorf("authentication failed: %s", authHeader)
+			token, err := getToken(authHeader, imagePush.username, imagePush.password)
+			if err != nil {
+				log.Errorf("Failed to get token: %v", err)
+				return false, err
 			}
+			imagePush.authToken = token
+			log.Infof("Successfully obtained token: %s", token)
+			// 使用 Token 重新发送请求
+			req.Header.Set("Authorization", "Bearer "+token)
+			log.Infof("Sending request with Bearer token...")
+			resp, err = imagePush.httpClient.Do(req)
+			if err != nil {
+				log.Errorf("Failed to send request with Bearer token: %v", err)
+				return false, err
+			}
+			defer resp.Body.Close()
+
+			log.Infof("Received response with status code: %d", resp.StatusCode)
 		}
 	}
 
@@ -514,8 +509,8 @@ func (imagePush *ImagePush) startPushing(image string) (string, error) {
 
 		// 获取新的 Token
 		authHeader := resp.Header.Get("Www-Authenticate")
-		if authHeader != "" && isAliyunRegistry(imagePush.registryEndpoint) {
-			token, err := getAliyunToken(authHeader, imagePush.username, imagePush.password)
+		if authHeader != "" {
+			token, err := getToken(authHeader, imagePush.username, imagePush.password)
 			if err != nil {
 				log.Errorf("Failed to get new token: %v", err)
 				return "", fmt.Errorf("failed to get new token: %v", err)

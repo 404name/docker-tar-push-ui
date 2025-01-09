@@ -78,12 +78,12 @@
                             <fieldset class="w-full space-y-1 text-gray-800  mb-1">
                                 <div class="flex">
                                     <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">镜像仓库地址</span>
-                                    <input type="text" name="repo" id="repo" placeholder="仓库地址" value="https://10.113.66.245" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
+                                    <input type="text" name="repo" id="repo" placeholder="仓库地址" value="https://registry.cn-hangzhou.aliyuncs.com" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
                                 </div>
                             </fieldset>
                             <fieldset class="w-full space-y-1 text-gray-800  mb-1">
                                 <div class="flex">
-                                    <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">镜像前缀</span>
+                                    <span class="flex items-center px-3 pointer-events-none sm:text-sm rounded-l-md bg-gray-300">镜像前缀/项目组</span>
                                     <input type="text" name="prefix" id="prefix" placeholder="这个前缀的项目组一定要存在" value="library" class="flex flex-1 border sm:text-sm rounded-r-md focus:ring-inset border-gray-300 text-gray-800 bg-gray-100 focus:ring-indigo-600">
                                 </div>
                             </fieldset>
@@ -209,8 +209,8 @@
                 answer: "传入正确的账号密码即可 或者确保 镜像前缀对应的镜像仓库项目存在"
             },
             {
-                question: "什么是镜像前缀？镜像仓库的项目是什么概念?",
-                answer: "- 说简单点类比OSS存储，一般也需要提前创建一个bucket然后指定这个才能上传文件\n - 镜像仓库也类似，需要指定一个提前创建好的项目名，才能往里面推送镜像，否则会找不到项目报错401\n- 一个镜像假设是10.113.66.245/library/traefik/whoami:v1.10\n - 实际是3部分构成，上传镜像需要指定具体的项目/镜像前缀，例如这里就是library，一般需要自行去镜像仓库提前创建，否则会报错找不到项目\n - 【镜像仓库地址】10.113.66.245 \n -【项目/镜像前缀】library \n - 【镜像名称版本】traefik/whoami:v1.10"
+                question: "镜像前缀、镜像仓库、命名空间、项目组是什么概念?",
+                answer: "- 这些都是同一个东西，不同的平台名称不同，可以简单理解就是镜像存放的父级单位 \n- 说简单点类比OSS存储，一般也需要提前创建一个bucket然后指定这个才能上传文件\n - 镜像仓库也类似，需要指定一个提前创建好的项目名，才能往里面推送镜像，否则会找不到项目报错401\n- 一个镜像假设是10.113.66.245/library/traefik/whoami:v1.10\n - 实际是3部分构成，上传镜像需要指定具体的项目/镜像前缀，例如这里就是library，一般需要自行去镜像仓库提前创建，否则会报错找不到项目\n - 【镜像仓库地址】10.113.66.245 \n -【项目/镜像前缀】library \n - 【镜像名称版本】traefik/whoami:v1.10"
             },
             {
                 question: "x509 certificate signed by unknown authority 如何解决",
