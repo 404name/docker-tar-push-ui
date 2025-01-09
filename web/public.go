@@ -1,9 +1,9 @@
 package web
 
 import (
+	"docker-tar-push-ui/pkg/push"
 	"embed"
 	"fmt"
-	"image-upload-portal/pkg/push"
 	"net/http"
 	"os"
 	"os/exec"
@@ -202,7 +202,7 @@ func listFiles(dir string) []byte {
 func executeDockerTarPush(s *melody.Session, runArgs []string) error {
 	//TODO 解决这里卡死的问题
 	// 分割命令和参数
-	// runArgs := []string{"C:\\Users\\User\\go\\src\\mq.code.sangfor.org\\12626\\image-upload-portal\\docker-tar-push.exe"} // 假设 docker-tar-push.exe 在当前目录下
+	// runArgs := []string{"C:\\Users\\User\\go\\src\\mq.code.sangfor.org\\12626\\docker-tar-push-ui\\docker-tar-push.exe"} // 假设 docker-tar-push.exe 在当前目录下
 	// // if runtime.GOOS == "windows" {
 	// // 	log.Infof("Windows")
 	// // 	cmd = exec.Command("C:\\Windows\\System32\\cmd.exe") // Windows 使用 cmd

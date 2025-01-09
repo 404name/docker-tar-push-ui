@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"image-upload-portal/pkg/util"
+	"docker-tar-push-ui/pkg/util"
 
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"

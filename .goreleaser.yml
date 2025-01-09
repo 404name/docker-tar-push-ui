@@ -1,11 +1,11 @@
-project_name: image-upload-portal
+project_name: docker-tar-push-ui
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - binary: image-upload-portal
+  - binary: docker-tar-push-ui
     main: .
     env:
       - CGO_ENABLED=0

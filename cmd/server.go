@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"image-upload-portal/web"
+	"docker-tar-push-ui/web"
 
 	"github.com/spf13/cobra"
 )

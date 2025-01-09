@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: image-upload-portal
+  name: docker-tar-push-ui
   labels:
-    app: image-upload-portal
+    app: docker-tar-push-ui
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: image-upload-portal
+      app: docker-tar-push-ui
   template:
     metadata:
       labels:
-        app: image-upload-portal
+        app: docker-tar-push-ui
     spec:
       containers:
-      - name: image-upload-portal
-        image: m.daocloud.io/404name/image-upload-portal:latest
+      - name: docker-tar-push-ui
+        image: m.daocloud.io/404name/docker-tar-push-ui:latest
         ports:
         - containerPort: 8088  # 假设你的应用监听在 8080 端口
         env:
@@ -28,13 +28,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: image-upload-portal-service
+  name: docker-tar-push-ui-service
   labels:
-    app: image-upload-portal
+    app: docker-tar-push-ui
 spec:
   type: ClusterIP  # 或者 LoadBalancer 如果你需要外部访问
   ports:
   - port: 80
     targetPort: 8088
   selector:
-    app: image-upload-portal
+    app: docker-tar-push-ui

@@ -20,5 +20,5 @@ vendor/
 /bin
 .DS_Store
 /.idea
-image-upload-portal.zip
+docker-tar-push-ui.zip
 .vscode/codeLensDiffCodeTempFileDir/untitled

@@ -1,6 +1,6 @@
 package main
 
-import "image-upload-portal/cmd"
+import "docker-tar-push-ui/cmd"
 
 func main() {
 	cmd.Execute()

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"image-upload-portal/pkg/push"
+	"docker-tar-push-ui/pkg/push"
 
 	"github.com/silenceper/log"
 	"github.com/spf13/cobra"

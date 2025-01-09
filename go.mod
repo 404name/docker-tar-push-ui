@@ -1,4 +1,4 @@
-module image-upload-portal
+module docker-tar-push-ui
 
 go 1.22
 

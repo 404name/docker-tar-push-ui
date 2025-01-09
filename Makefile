@@ -1,8 +1,8 @@
 build:
-	go build -o ./image-upload-portal ./
+	go build -o ./docker-tar-push-ui ./
 
 docker-build: 
-	docker build -t image-upload-portal:latest  .
+	docker build -t docker-tar-push-ui:latest  .
 
 docker-run: 
-	docker run -d --name image-upload-portal -p 8088:8088 image-upload-portal:latest
+	docker run -d --name docker-tar-push-ui -p 8088:8088 docker-tar-push-ui:latest

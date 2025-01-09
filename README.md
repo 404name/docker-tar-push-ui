@@ -4,22 +4,22 @@
 > - 想法：解决小白在不熟悉docker、不会代理拉取镜像或者内网情况下上传镜像的问题
 > - 思路：简单通过已有的离线镜像包([如何制作/获取离线镜像包](#))，直接通过UI上传
 
-![](./docs/image-upload-portal.jpg)
+![](./docs/docker-tar-push-ui.jpg)
 
 # 二、项目使用和注意
 
 ## 2.1 运行项目
 
 **资源下载**
-- 二进制工具下载: [image-upload-portal](https://github.com/404name/image-upload-portal/releases/latest)
-- 常用离线镜像包下载: [nginx、mysql、echo-server](https://github.com/404name/image-upload-portal/releases/latest)
+- 二进制工具下载: [docker-tar-push-ui](https://github.com/404name/docker-tar-push-ui/releases/latest)
+- 常用离线镜像包下载: [nginx、mysql、echo-server](https://github.com/404name/docker-tar-push-ui/releases/latest)
 
 
 **项目运行**
 
-- **linux**: ./image-upload-portal server --port=8088
-- **windows**: ./image-upload-portal.exe server --port=8088
-- **docker**: mkdir -p /data/uploads && chmod -R 777 /data/uploads && docker run -d --name image-upload-portal -p 8088:8088 -v /data/uploads:/app/uploads 404name/image-upload-portal:latest
+- **linux**: ./docker-tar-push-ui server --port=8088
+- **windows**: ./docker-tar-push-ui.exe server --port=8088
+- **docker**: mkdir -p /data/uploads && chmod -R 777 /data/uploads && docker run -d --name docker-tar-push-ui -p 8088:8088 -v /data/uploads:/app/uploads 404name/docker-tar-push-ui:latest
 - **k8s**: kubectl apply -f ./deploy.yaml
 
 ## 2.2 功能
@@ -44,8 +44,8 @@
 # 三、项目开发和维护
 
 **提交issue**
-- 提交bug：https://github.com/404name/image-upload-portal/issues/new/choose
-- 提交需求：https://github.com/404name/image-upload-portal/issues/new/choose
+- 提交bug：https://github.com/404name/docker-tar-push-ui/issues/new/choose
+- 提交需求：https://github.com/404name/docker-tar-push-ui/issues/new/choose
 
 
 **本地开发**
@@ -53,8 +53,8 @@
 - go mod tidy
 - go run ./ server
 
-- docker build -t image-upload-portal:latest  .
-- docker run -d --name image-upload-portal -p 8088:8088 image-upload-portal:latest
+- docker build -t docker-tar-push-ui:latest  .
+- docker run -d --name docker-tar-push-ui -p 8088:8088 docker-tar-push-ui:latest
 
 
 **实现热加载**
@@ -98,14 +98,14 @@
 
 **contributors**
 
-<a href="https://github.com/404name/image-upload-portal/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=404name/image-upload-portal" />
+<a href="https://github.com/404name/docker-tar-push-ui/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=404name/docker-tar-push-ui" />
 </a>
 
 ## Star History Chart
 
 
-[![Star History Chart](https://api.star-history.com/svg?repos=404name/image-upload-portal&type=Date)](https://star-history.com/#404name/image-upload-portal&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=404name/docker-tar-push-ui&type=Date)](https://star-history.com/#404name/docker-tar-push-ui&Date)
 
 ## License
 
