@@ -1,0 +1,69 @@
+name: build-go-binary
+
+on:
+  release:
+    types: [created] # 表示在创建新的 Release 时触发
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    env:
+      flags: ''
+    steps:
+      # 1. 检出代码
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # 2. 设置 Go 环境
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.21
+          cache: true
+
+      # 3. 运行 GoReleaser
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean ${{ env.flags }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_SET_TOKEN }}
+
+      # 4. 安装 GitHub CLI
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      # 5. 定义镜像列表并拉取、推送镜像
+      - name: Pull and push images to Release
+        run: |
+          # 定义镜像列表
+          images="
+          nginx:latest
+          mysql:5.7
+          jmalloc/echo-server:latest
+          "
+
+          # 逐行处理镜像列表
+          echo "$images" | while read -r image; do
+            if [ -n "$image" ]; then
+              echo "Pulling and pushing image: $image"
+              # 生成带前缀的文件名
+              filename="offline-image-$(echo "$image" | tr ':/' '-').tar"
+
+              # 拉取镜像并保存为临时文件
+              docker pull "$image"
+              docker save -o "$filename" "$image"
+
+              # 上传临时文件到 Release
+              gh release upload ${{ github.event.release.tag_name }} "$filename" --clobber
+
+              # 删除临时文件
+              rm "$filename"
+            fi
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_SET_TOKEN }}

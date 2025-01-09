@@ -1,12 +1,8 @@
 # 第一阶段：构建阶段
-FROM docker.m.daocloud.io/library/golang:1.22-alpine AS builder
+FROM golang:1.22-alpine AS builder
 
 # 设置工作目录
 WORKDIR /app
-
-# 设置 Go 模块代理
-ENV GO111MODULE=on
-ENV GOPROXY=https://goproxy.cn,direct
 
 # 复制项目文件到容器中（排除 .dockerignore 中的内容）
 COPY . .
@@ -16,7 +12,7 @@ RUN go build -o /app/main . && \
     rm -rf /go/pkg/mod /root/.cache/go-build
 
 # 第二阶段：运行阶段
-FROM docker.m.daocloud.io/library/alpine:latest
+FROM alpine:latest
 
 # 设置工作目录
 WORKDIR /app
