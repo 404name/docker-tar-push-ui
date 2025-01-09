@@ -150,8 +150,10 @@ func (imagePush *ImagePush) preHandle(imagepath string) error {
 	for _, manifestObj := range manifestObjs {
 		imagePush.Infof("start push image archive %s", imagePush.archivePath)
 		for _, repo := range manifestObj.RepoTags {
-			//repo = "test-tar:test-tag"
+			//repo = "xxxxxx/test-tar:test-tag"
 			image, tag := util.ParseImageAndTag(repo)
+			// image := "xxxxx/xxxxxxx/test-tar" 只保留最后部分test-tar
+			image = path.Base(image)
 			repoImage := path.Join(imagePush.imagePrefix, image)
 			imagePush.Debugf("image=%s,tag=%s", image, tag)
 
