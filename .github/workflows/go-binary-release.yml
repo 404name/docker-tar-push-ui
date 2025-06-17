@@ -45,6 +45,7 @@ jobs:
           nginx:latest
           mysql:5.7
           jmalloc/echo-server:latest
+          swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/nicolaka/netshoot:latest
           "
 
           # 逐行处理镜像列表
